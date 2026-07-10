@@ -1,0 +1,24 @@
+# Ambiente virtual
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Banco de dados gerado
+data/app.db
+*.db
+
+# Segredos / configs locais
+.streamlit/secrets.toml
+.env
+
+# SO / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

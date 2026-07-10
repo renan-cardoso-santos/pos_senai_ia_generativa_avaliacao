@@ -1,0 +1,16 @@
+# Tema do RecrutaMe — paleta aprovada (azul confiança + verde sucesso).
+# Streamlit usa UM tema por vez; abaixo o tema CLARO como padrão.
+# Os valores do modo escuro estão documentados no plano
+# (docs/plano_implementacao_recrutame.md, seção 5) para troca manual.
+[theme]
+primaryColor = "#2563EB"          # azul confiança — botões, links, foco
+backgroundColor = "#F8FAFC"       # fundo da app
+secondaryBackgroundColor = "#FFFFFF"  # cards / sidebar
+textColor = "#0F172A"
+font = "sans serif"
+
+[server]
+headless = true
+
+[browser]
+gatherUsageStats = false
