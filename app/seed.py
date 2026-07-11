@@ -16,19 +16,13 @@ if _RAIZ not in sys.path:
 
 import pandas as pd  # noqa: E402
 
-from app import auth, db  # noqa: E402
+from app import auth, db, exemplos  # noqa: E402
 
 DATA_DIR = os.path.join(_RAIZ, "data")
 XLSX = os.path.join(DATA_DIR, "portfolio_star.xlsx")
 
-DEMO_EMAIL = "demo@recrutame.dev"
-DEMO_SENHA = "demo1234"
-
-CV_FICTICIO = """Ana Beltrão — Cientista de Dados
-Resumo: 3 anos em análise de dados e automação, Python e SQL.
-Experiência: Analista de dados na FinTechX — dashboards e ETL.
-Skills: Python, SQL, Pandas, Power BI, Git.
-Formação: Tecnólogo em Ciência de Dados."""
+DEMO_EMAIL = exemplos.DEMO_EMAIL
+DEMO_SENHA = exemplos.DEMO_SENHA
 
 VAGA_FICTICIA = """Vaga: Cientista de Dados Pleno
 Requisitos: Python, SQL, machine learning, comunicação com stakeholders,
@@ -83,36 +77,59 @@ def executar() -> None:
         uid = db.criar_usuario(DEMO_EMAIL, auth.hash_senha(DEMO_SENHA), "Ana Beltrão (demo)")
         print(f"Usuário demo criado: {DEMO_EMAIL} / {DEMO_SENHA}")
 
-    # CV + vaga + análise + portfólio.
-    curriculo_id = db.salvar_curriculo(uid, "cv_ficticio.txt", CV_FICTICIO)
-    vaga_id = db.criar_vaga(uid, "TechCorp", "Cientista de Dados Pleno", VAGA_FICTICIA, status="aplicada")
+    # CV PADRONIZADO de exemplo (cifrado, LGPD): pronto para o avaliador ir direto
+    # às features onde a LLM atua, sem informar dados pessoais. Idempotente.
+    if db.ultimo_curriculo_estruturado(uid) is None:
+        curriculo_id = db.salvar_curriculo(
+            uid, "CV de exemplo (demonstração)", exemplos.texto_cv_exemplo()
+        )
+        db.atualizar_estruturado(curriculo_id, exemplos.cv_exemplo().model_dump())
+        print("CV padronizado de exemplo salvo para o demo (dados pessoais cifrados).")
+    else:
+        curriculo_id = db.ultimo_curriculo(uid)["id"]
+        print("Demo já possui CV padronizado — mantido.")
 
-    from agents.ia_service import get_ia_service
+    # Vagas + análise + portfólio (só na primeira vez, para não duplicar).
+    if not db.listar_vagas(uid):
+        from agents.ia_service import get_ia_service
 
-    ia = get_ia_service()
-    resultado = ia.analisar_cv_vaga(CV_FICTICIO, VAGA_FICTICIA)
-    db.atualizar_score(vaga_id, resultado.score)
-    db.salvar_analise(vaga_id, curriculo_id, resultado.model_dump())
+        cv_texto = exemplos.cv_exemplo().para_texto()
+        ia = get_ia_service()
+        vaga_id = db.criar_vaga(
+            uid, "TechCorp", "Cientista de Dados Pleno", VAGA_FICTICIA, status="aplicada"
+        )
+        resultado = ia.analisar_cv_vaga(cv_texto, VAGA_FICTICIA)
+        db.atualizar_score(vaga_id, resultado.score)
+        db.salvar_analise(vaga_id, curriculo_id, resultado.model_dump())
 
-    registros = [
-        {
-            "projeto": p["Projeto"],
-            "situacao": p["Situação"],
-            "tarefa": p["Tarefa"],
-            "acao": p["Ação"],
-            "resultado": p["Resultado"],
-            "skills_tags": p["Skills/Tags"],
-            "area": p["Área"],
-        }
-        for p in PORTFOLIO
-    ]
-    db.importar_portfolio(uid, registros)
+        registros = [
+            {
+                "projeto": p["Projeto"],
+                "situacao": p["Situação"],
+                "tarefa": p["Tarefa"],
+                "acao": p["Ação"],
+                "resultado": p["Resultado"],
+                "skills_tags": p["Skills/Tags"],
+                "area": p["Área"],
+            }
+            for p in PORTFOLIO
+        ]
+        db.importar_portfolio(uid, registros)
 
-    # Mais duas vagas em status diferentes, para o Kanban ter vida.
-    db.criar_vaga(uid, "DataHub", "Analista de Dados", VAGA_FICTICIA, status="salva")
-    db.criar_vaga(uid, "InovaAI", "ML Engineer", VAGA_FICTICIA, status="entrevista")
+        # Mais duas vagas em status diferentes, para o Kanban ter vida.
+        db.criar_vaga(uid, "DataHub", "Analista de Dados", VAGA_FICTICIA, status="salva")
+        db.criar_vaga(uid, "InovaAI", "ML Engineer", VAGA_FICTICIA, status="entrevista")
+    else:
+        print("Demo já possui vagas — nenhuma criada.")
 
     print("Seed concluído.")
+    print(
+        f"\nDemo: {DEMO_EMAIL} / {DEMO_SENHA}\n"
+        "→ Já vem com um CV padronizado de exemplo salvo (sem dados reais).\n"
+        "→ Para testar sem informar dados: use o botão 'Preencher com um CV de "
+        "exemplo' ou suba 'exemplos/cv_modelo_exemplo.docx' na tela Nova análise.\n"
+        "→ As features de IA (análise, sugestões, entrevista) já ficam liberadas."
+    )
 
 
 if __name__ == "__main__":

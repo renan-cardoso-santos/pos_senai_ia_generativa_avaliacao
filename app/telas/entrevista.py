@@ -37,8 +37,7 @@ def render() -> None:
         return
 
     vaga = db.buscar_vaga(vaga_id)
-    cv = db.ultimo_curriculo(usuario_id)
-    cv_texto = cv["texto_extraido"] if cv else ""
+    cv_texto = db.curriculo_padronizado_texto(usuario_id)
     vaga_texto = vaga["descricao"] or ""
 
     tom = st.select_slider(

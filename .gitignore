@@ -17,6 +17,10 @@ data/app.db
 .streamlit/secrets.toml
 .env
 
+# Chave de cifragem de PII (LGPD) — nunca versionar
+data/.lgpd.key
+*.key
+
 # SO / editor
 .DS_Store
 Thumbs.db

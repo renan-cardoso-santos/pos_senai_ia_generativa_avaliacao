@@ -21,6 +21,7 @@ from typing import Any
 
 from agents.modelos import (
     AnaliseCV,
+    CurriculoEstruturado,
     PacoteEntrevista,
     ProjetoRecomendado,
     RespostaEntrevista,
@@ -32,6 +33,9 @@ from tools import definicoes as tools
 
 class IAService(ABC):
     """Contrato que a UI enxerga. Mock e real implementam os mesmos métodos."""
+
+    @abstractmethod
+    def estruturar_cv(self, cv_texto: str) -> CurriculoEstruturado: ...
 
     @abstractmethod
     def analisar_cv_vaga(self, cv_texto: str, vaga_texto: str) -> AnaliseCV: ...
@@ -73,6 +77,9 @@ class IAService(ABC):
 
 class MockIAService(IAService):
     """Parte 1 — despacha para as function tools (sem LLM). Saídas Pydantic."""
+
+    def estruturar_cv(self, cv_texto: str) -> CurriculoEstruturado:
+        return tools.executar("estruturar_cv", cv_texto=cv_texto)
 
     def analisar_cv_vaga(self, cv_texto: str, vaga_texto: str) -> AnaliseCV:
         return tools.executar("analisar_cv_vaga", cv_texto=cv_texto, vaga_texto=vaga_texto)

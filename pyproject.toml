@@ -1,0 +1,29 @@
+[project]
+name = "recrutame"
+version = "0.1.0"
+description = "RecrutaMe — plataforma unificada de candidatura (Pós SENAI, IA Generativa)."
+requires-python = ">=3.11"
+dependencies = [
+    "streamlit>=1.36",
+    "pandas>=2.0",
+    "openpyxl>=3.1",
+    "pypdf>=4.0",
+    "python-docx>=1.1",
+    "pydantic>=2.0",
+    "cryptography>=42.0",  # cifragem de PII em repouso (LGPD)
+    # Parte 2 (IA real) — descomente ao integrar o LLM:
+    # "anthropic>=0.40",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.0"]
+
+[tool.uv]
+# App (código em app/, agents/, tools/), não um pacote instalável: uv só gerencia
+# o ambiente e as dependências, sem tentar "buildar" o projeto.
+package = false
+
+[tool.pytest.ini_options]
+# Raiz no sys.path para importar agents/app/tools em `uv run pytest`.
+pythonpath = ["."]
+testpaths = ["tests"]

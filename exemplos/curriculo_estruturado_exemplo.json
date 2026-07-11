@@ -1,0 +1,46 @@
+{
+  "dados_pessoais": {
+    "nome": "Joana Exemplo da Silva",
+    "email": "joana.exemplo@email.com",
+    "telefone": "(11) 98888-0000",
+    "localizacao": "São Paulo, SP",
+    "linkedin": "https://www.linkedin.com/in/joana-exemplo/"
+  },
+  "resumo": "Cientista de Dados Pleno | Machine Learning, Analytics e Engenharia de Dados Cientista de dados com 5+ anos transformando dados em decisão. Experiência em modelos de machine learning em produção, automação de pipelines e comunicação com áreas de negócio. Foco em Python, SQL e impacto mensurável.",
+  "experiencias": [
+    {
+      "cargo": "Cientista de Dados Sênior",
+      "empresa": "TechData",
+      "periodo": "2021 – atual",
+      "descricao": "Liderou modelos de ML em produção; reduziu em 30% o churn de clientes. Automatizou pipelines de ETL em Python/SQL."
+    },
+    {
+      "cargo": "Analista de Dados",
+      "empresa": "Varejo S.A.",
+      "periodo": "2018 – 2021",
+      "descricao": "Construiu dashboards em Power BI para 5 áreas de negócio."
+    }
+  ],
+  "formacao": [
+    {
+      "curso": "Bacharelado em Estatística",
+      "instituicao": "Universidade de São Paulo (USP), São Paulo",
+      "periodo": "2013 — 2017"
+    }
+  ],
+  "skills": [
+    "Linguagens: Python",
+    "SQL",
+    "Bibliotecas: Pandas",
+    "scikit-learn",
+    "Visualização & BI: Power BI",
+    "Git"
+  ],
+  "idiomas": [
+    "Inglês — avançado",
+    "Espanhol — intermediário"
+  ],
+  "certificacoes": [
+    "• AWS Certified Machine Learning — Specialty, Amazon Web Services – 2022"
+  ]
+}

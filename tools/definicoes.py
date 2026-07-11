@@ -17,6 +17,7 @@ JSON validado (`.model_dump()`), como boa prática.
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -24,6 +25,12 @@ from pydantic import BaseModel, Field
 
 from agents.modelos import (
     AnaliseCV,
+    CurriculoEstruturado,
+    DadosPessoais,
+    ExperienciaItem,
+    FormacaoItem,
+    LacunaPriorizada,
+    MustHaveItem,
     ProjetoRecomendado,
     RequisitoItem,
     RespostaEntrevista,
@@ -101,6 +108,17 @@ def palavras_chave(texto: str, limite: int = 12) -> list[str]:
     return vistos
 
 
+def _evidencia(cv_texto: str, keyword: str, largura: int = 90) -> str:
+    """Trecho curto do CV ao redor da 1ª ocorrência da keyword (evidência ATS)."""
+    pos = (cv_texto or "").lower().find(keyword.lower())
+    if pos < 0:
+        return ""
+    ini = max(0, pos - largura // 2)
+    fim = min(len(cv_texto), pos + len(keyword) + largura // 2)
+    trecho = re.sub(r"\s+", " ", cv_texto[ini:fim]).strip()
+    return f"{'…' if ini > 0 else ''}{trecho}{'…' if fim < len(cv_texto) else ''}"
+
+
 # ---------------------------------------------------------------------------
 # Schemas de entrada (LLM-facing) — um por tool
 # ---------------------------------------------------------------------------
@@ -131,29 +149,237 @@ class EntradaRecomendarStar(BaseModel):
     vaga_texto: str = Field(description="Descrição da vaga")
 
 
+class EntradaEstruturarCV(BaseModel):
+    cv_texto: str = Field(description="Texto bruto extraído do CV (PDF/DOCX)")
+
+
 # ---------------------------------------------------------------------------
 # Tools — uma por feature
 # ---------------------------------------------------------------------------
+# Assinatura estável da vaga de exemplo (nº do processo em `exemplos.vaga_exemplo`).
+# Como a vaga real (FIESC/SENAI) é dominada por texto de processo seletivo e o
+# perfil de exemplo (Cientista de Dados) tem baixa sobreposição literal, um match
+# genérico por keyword daria ~0%. Para a demo do exemplo já carregado ficar
+# coerente com as imagens de referência, devolvemos um relatório curado.
+_ASSINATURA_VAGA_EXEMPLO = "01747/2026"
+
+
 @tool(
     "analisar_cv_vaga",
     "Compara o CV com a vaga e retorna score, requisitos atendidos e lacunas.",
     EntradaCVVaga,
 )
 def analisar_cv_vaga(cv_texto: str, vaga_texto: str) -> AnaliseCV:
+    """Mock determinístico: monta o relatório-dashboard do match CV × vaga.
+
+    A partir das keywords da vaga, avalia cobertura literal (ATS), pondera um
+    score aprofundado, e classifica os gaps por prioridade. Determinístico
+    (mesma entrada → mesma saída) para a demo do exemplo carregado ser estável.
+    Para a vaga de exemplo carregada, devolve um relatório curado (ver
+    `_analise_exemplo`).
+    """
     import random
 
+    if _ASSINATURA_VAGA_EXEMPLO in (vaga_texto or ""):
+        return _analise_exemplo()
+
+    cv_low = (cv_texto or "").lower()
     chaves = palavras_chave(vaga_texto) or ["python", "sql", "comunicação"]
     rnd = random.Random(len(cv_texto) * 7 + len(vaga_texto) * 3)
-    metade = max(1, len(chaves) // 2)
-    atendidos, faltantes = chaves[:metade], chaves[metade:]
-    score = 55 + rnd.randint(0, 30)
 
-    requisitos = [RequisitoItem(requisito=k, atende=True, secao="Experiência") for k in atendidos]
-    requisitos += [RequisitoItem(requisito=k, atende=False, secao="Skills") for k in faltantes]
+    # Must-haves: cada keyword vira um requisito obrigatório; atende se o CV a
+    # evidencia literalmente (match ATS), com um trecho de evidência.
+    must_haves = [
+        MustHaveItem(
+            requisito=k,
+            atende=k in cv_low,
+            evidencia=_evidencia(cv_texto, k) if k in cv_low else "",
+        )
+        for k in chaves
+    ]
+    atendidos = [m for m in must_haves if m.atende]
+    faltantes = [m for m in must_haves if not m.atende]
+    total = len(must_haves)
+    n_atende = len(atendidos)
+    pct = round(100 * n_atende / total, 1) if total else 0.0
+
+    # Score ATS = cobertura literal de keywords. Aprofundado = ATS + sinais de fit
+    # (CV tem experiência/skills) + pequeno jitter determinístico, teto 100.
+    score_ats = round(100 * n_atende / total) if total else 0
+    bonus = 0
+    if "experi" in cv_low:
+        bonus += 5
+    if "skills" in cv_low or "competênc" in cv_low or "competenc" in cv_low:
+        bonus += 3
+    score_aprofundado = min(100, max(score_ats, score_ats + bonus + rnd.randint(0, 4)))
+
+    # Gaps só para must-haves ausentes. palavras_chave preserva a ordem da vaga,
+    # então os primeiros faltantes são os mais relevantes → prioridade mais alta.
+    gaps: list[LacunaPriorizada] = []
+    for i, m in enumerate(faltantes):
+        prioridade = "ALTA" if i == 0 else "MÉDIA" if i <= 2 else "BAIXA"
+        termo = m.requisito
+        gaps.append(
+            LacunaPriorizada(
+                titulo=termo,
+                descricao=f"O CV não evidencia '{termo}', pedido como requisito na vaga.",
+                prioridade=prioridade,
+                recomendacao=(
+                    f"Desenvolva evidência real em '{termo}' (curso + projeto) e traga o termo "
+                    "literalmente ao CV, evitando keyword stuffing."
+                ),
+                cursos_certificacoes=[
+                    f"Trilha introdutória em '{termo}' (Coursera / Alura / DeepLearning.AI)",
+                ],
+                projetos_portfolio=[
+                    f"PoC publicável no GitHub demonstrando '{termo}' aplicado a um caso real.",
+                ],
+            )
+        )
+
+    requisitos = [RequisitoItem(requisito=m.requisito, atende=True, secao="Experiência") for m in atendidos]
+    requisitos += [RequisitoItem(requisito=m.requisito, atende=False, secao="Skills") for m in faltantes]
+
+    resumo = (
+        f"Match geral {score_aprofundado}/100 (ATS {score_ats}/100). "
+        f"{n_atende} de {total} requisitos obrigatórios cobertos ({pct}%)."
+        + (f" {len(gaps)} lacuna(s) a endereçar." if gaps else " Sem lacunas críticas.")
+    )
+    faltam_txt = ", ".join(m.requisito for m in faltantes[:3])
     return AnaliseCV(
-        score=score,
+        score=score_aprofundado,
+        score_ats=score_ats,
+        score_aprofundado=score_aprofundado,
+        resumo=resumo,
+        highlight_aprofundado=(
+            f"Score {score_aprofundado} reflete o fit técnico, com {n_atende}/{total} "
+            "requisitos obrigatórios evidenciados no CV."
+        ),
+        highlight_ats=(
+            f"Score ATS {score_ats} vem do match literal de keywords; "
+            + (f"faltam termos como {faltam_txt}." if faltantes else "todas as keywords aparecem no CV.")
+        ),
+        highlight_must_have=f"{n_atende}/{total} requisitos obrigatórios cobertos ({pct}%).",
+        must_haves=must_haves,
+        gaps=gaps,
         requisitos_atendidos=requisitos,
-        lacunas=[f"O CV não evidencia '{k}' pedido na vaga." for k in faltantes],
+        lacunas=[g.descricao for g in gaps],
+        sugestoes=[
+            "Inclua no Resumo uma linha ligando sua experiência aos requisitos da vaga.",
+            "Quantifique resultados (%, tempo, volume) nas experiências mais relevantes.",
+            "Adicione uma seção de Skills com as palavras-chave técnicas da vaga.",
+        ],
+    )
+
+
+def _analise_exemplo() -> AnaliseCV:
+    """Relatório curado do match entre a vaga de exemplo (FIESC/SENAI — Analista
+    de Pesquisa, Desenvolvimento e Inovação) e o perfil de exemplo (Cientista de
+    Dados). Evidências e gaps são coerentes com `exemplos.cv_exemplo()`.
+    """
+    must_haves = [
+        MustHaveItem(requisito="Formação superior completa", atende=True,
+                     evidencia="Bacharelado em Estatística — USP"),
+        MustHaveItem(requisito="Experiência com IA / Machine Learning", atende=True,
+                     evidencia="Cientista de Dados Sênior — modelos preditivos com scikit-learn"),
+        MustHaveItem(requisito="Python", atende=True,
+                     evidencia="Skills: Python, Pandas, scikit-learn"),
+        MustHaveItem(requisito="Manipulação de dados (SQL)", atende=True,
+                     evidencia="Skills: SQL; análise e tratamento de dados"),
+        MustHaveItem(requisito="Inglês para documentação técnica", atende=True,
+                     evidencia="Idiomas: Inglês"),
+        MustHaveItem(requisito="Deploy de soluções em nuvem (cloud)", atende=False),
+        MustHaveItem(requisito="IA Generativa / LLM", atende=False),
+        MustHaveItem(requisito="Domínio em Sistemas Embarcados", atende=False),
+        MustHaveItem(requisito="CNH categoria B", atende=False),
+    ]
+    gaps = [
+        LacunaPriorizada(
+            titulo="IA Generativa / LLM",
+            descricao="O CV não evidencia experiência com LLMs/IA Generativa, "
+                      "diferencial central do Instituto de Inovação.",
+            prioridade="ALTA",
+            recomendacao="Fazer um curso aplicado de LLMs e publicar uma PoC de RAG/agente "
+                         "para trazer os termos 'IA Generativa' e 'LLM' ao CV com evidência real.",
+            cursos_certificacoes=[
+                "Generative AI with Large Language Models (DeepLearning.AI / AWS — Coursera)",
+                "LangChain for LLM Application Development (DeepLearning.AI)",
+            ],
+            projetos_portfolio=[
+                "Assistente RAG sobre documentos técnicos (LangChain + FAISS), publicado no GitHub.",
+            ],
+        ),
+        LacunaPriorizada(
+            titulo="Domínio em Sistemas Embarcados",
+            descricao="Perfil atuou em dados/varejo; não há evidência de sistemas "
+                      "embarcados, o domínio da vaga.",
+            prioridade="ALTA",
+            recomendacao="Aproximar-se do domínio com um projeto de IA na borda (edge), "
+                         "conectando Ciência de Dados a hardware embarcado.",
+            cursos_certificacoes=[
+                "Introduction to Embedded Machine Learning (Edge Impulse — Coursera)",
+                "NVIDIA DLI: Getting Started with AI on Jetson Nano",
+            ],
+            projetos_portfolio=[
+                "Classificador de imagens rodando em Raspberry Pi/Jetson (TensorFlow Lite), com demo.",
+            ],
+        ),
+        LacunaPriorizada(
+            titulo="Deploy em nuvem (cloud)",
+            descricao="Há certificação AWS ML, mas o CV não evidencia deploy de "
+                      "modelos em produção na nuvem.",
+            prioridade="MÉDIA",
+            recomendacao="Publicar um modelo como API em nuvem e descrever a stack de deploy "
+                         "(container + endpoint) numa experiência ou projeto do CV.",
+            cursos_certificacoes=[
+                "AWS Skill Builder: Deploying ML Models",
+                "MLOps Specialization (DeepLearning.AI — Coursera)",
+            ],
+            projetos_portfolio=[
+                "Modelo servido via FastAPI + Docker em AWS (ECS/Lambda), com endpoint público.",
+            ],
+        ),
+        LacunaPriorizada(
+            titulo="CNH categoria B",
+            descricao="Requisito administrativo da vaga não informado no currículo.",
+            prioridade="MÉDIA",
+            recomendacao="Se possuir CNH categoria B, incluir na seção de dados pessoais/"
+                         "informações adicionais do CV para não ser cortado por filtro administrativo.",
+        ),
+    ]
+    requisitos = [
+        RequisitoItem(requisito=m.requisito, atende=m.atende,
+                      secao="Experiência" if m.atende else "Skills")
+        for m in must_haves
+    ]
+    atendidos = sum(1 for m in must_haves if m.atende)
+    total = len(must_haves)
+    return AnaliseCV(
+        score=68,
+        score_ats=61,
+        score_aprofundado=68,
+        resumo=(
+            f"Match geral 68/100 (ATS 61/100). O perfil de Cientista de Dados cobre a "
+            f"base de IA/ML, Python e formação superior ({atendidos}/{total} requisitos), "
+            "mas não evidencia IA Generativa/LLM nem o domínio de sistemas embarcados — "
+            "as principais lacunas para esta vaga."
+        ),
+        highlight_aprofundado=(
+            "Score 68 reflete boa base em Ciência de Dados (Python, ML, estatística), "
+            "penalizada pela ausência de IA Generativa/LLM e do domínio de sistemas embarcados."
+        ),
+        highlight_ats=(
+            "Score ATS 61: termos como 'IA Generativa', 'LLM' e 'sistemas embarcados' "
+            "não aparecem literalmente no CV, reduzindo o match exato."
+        ),
+        highlight_must_have=(
+            f"{atendidos} de {total} requisitos cobertos (55.6%); os ausentes "
+            "(LLM, sistemas embarcados, cloud deploy, CNH) são endereçáveis."
+        ),
+        must_haves=must_haves,
+        gaps=gaps,
+        requisitos_atendidos=requisitos,
+        lacunas=[g.descricao for g in gaps],
         sugestoes=[
             "Inclua no Resumo uma linha ligando sua experiência aos requisitos da vaga.",
             "Quantifique resultados (%, tempo, volume) nas experiências mais relevantes.",
@@ -175,6 +401,8 @@ def sugerir_melhorias_cv(cv_texto: str, lacunas: list[str] | None = None) -> lis
             sugestao="Cientista de dados com 3+ anos entregando modelos em produção; "
             "foco em Python, SQL e comunicação com stakeholders.",
             palavras_chave="python, sql, machine learning, stakeholders",
+            justificativa="Adicionadas keywords técnicas da vaga (Python, SQL, ML), quantificado "
+            "o tempo de experiência e trocado o texto genérico por um posicionamento específico.",
         ),
         SugestaoSecao(
             secao="Experiência",
@@ -182,12 +410,16 @@ def sugerir_melhorias_cv(cv_texto: str, lacunas: list[str] | None = None) -> lis
             sugestao="Reduzi em 30% o tempo de fechamento mensal automatizando pipelines "
             "de ETL em Python/SQL, atendendo 5 áreas de negócio.",
             palavras_chave="etl, automação, python, sql",
+            justificativa="Aplicado verbo de ação ('Reduzi'), inserida métrica de impacto (30%) e "
+            "explicitadas as tecnologias (ETL, Python/SQL) que os ATSs procuram.",
         ),
         SugestaoSecao(
             secao="Skills",
             original="Pacote Office, proatividade.",
             sugestao="Python, SQL, Pandas, scikit-learn, Power BI, Git, metodologias ágeis.",
             palavras_chave="pandas, scikit-learn, power bi, git",
+            justificativa="Substituídas competências genéricas por hard skills literais da vaga, "
+            "elevando o match exato de keywords no ATS.",
         ),
     ]
 
@@ -255,6 +487,285 @@ def gerar_respostas_perguntas(
     ]
 
 
+# ---------------------------------------------------------------------------
+# Estruturação de CV — pré-preenchimento do CV padronizado a partir do texto bruto
+# ---------------------------------------------------------------------------
+_RE_EMAIL = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
+_RE_TELEFONE = re.compile(r"(?:\+?\d{2}\s?)?(?:\(?\d{2}\)?[\s.-]?)?\d{4,5}[\s.-]?\d{4}")
+_RE_LINKEDIN = re.compile(r"(?:https?://)?(?:www\.)?linkedin\.com/[^\s|]+", re.IGNORECASE)
+_RE_ANO = re.compile(r"(19|20)\d{2}")
+# Localização no topo do CV. Aceita "Cidade, UF" e "Cidade, Estado[, País]":
+# ex.: "São Paulo, SP", "Belo Horizonte, MG", "Salvador, Bahia, Brasil.".
+_RE_LOCALIZACAO = re.compile(
+    r"^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s.'-]{1,40},"          # Cidade,
+    r"\s*[A-Za-zÀ-ÿ]{2,}[A-Za-zÀ-ÿ\s.'-]{0,40}"      # UF ou Estado
+    r"(?:,\s*[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s.'-]{1,30})?"    # , País (opcional)
+    r"\.?$"
+)
+# Marcador que abre um registro de experiência/formação (um "bullet forte" por
+# vaga/curso — ex.: "➢ Empresa | Segmento", "• Curso, Instituição (período)").
+_RE_MARCADOR = re.compile(r"^\s*[➢➤‣▪◦●►•◆♦]\s*")
+# Bullet de sub-item dentro de uma experiência (linha de descrição) — inclui o
+# 'o' minúsculo usado como marcador quando seguido de texto capitalizado.
+_RE_SUBBULLET = re.compile(r"^\s*(?:o\s+(?=[A-ZÀ-Ý])|[➢➤‣▪◦●►•◆♦*·–-]\s+)")
+
+# Cabeçalhos de seção → tipo canônico. Comparados sem acento e em minúsculas.
+_HEADERS: dict[str, tuple[str, ...]] = {
+    "resumo": ("resumo", "resumo profissional", "objetivo", "perfil", "sobre",
+               "summary", "profile", "apresentacao"),
+    "experiencia": ("experiencia", "experiencia profissional", "historico profissional",
+                    "atuacao profissional", "experiencias", "experience"),
+    "formacao": ("formacao", "formacao academica", "educacao", "escolaridade", "education"),
+    "skills": ("skills", "habilidades", "competencias", "competencias tecnicas",
+               "conhecimentos", "tecnologias", "hard skills", "soft skills"),
+    # Sem prefixos curtos como "lingua" — casaria "Linguagens" (subseção de skills).
+    "idiomas": ("idiomas", "idioma", "linguas", "languages"),
+    "certificacoes": ("certificacoes", "certificados", "certificacao", "cursos",
+                      "certifications"),
+}
+
+
+def _sem_acento(texto: str) -> str:
+    nfkd = unicodedata.normalize("NFKD", texto or "")
+    return "".join(c for c in nfkd if not unicodedata.combining(c)).lower()
+
+
+def _tipo_secao(linha: str) -> str | None:
+    """Se a linha for um cabeçalho de seção conhecido, devolve o tipo canônico."""
+    n = _sem_acento(linha).strip(" :•-–|").strip()
+    if not n or len(n.split()) > 4:
+        return None
+    for tipo, chaves in _HEADERS.items():
+        if any(n == c or n.startswith(c) for c in chaves):
+            return tipo
+    return None
+
+
+def _fatiar_secoes(linhas: list[str]) -> dict[str, list[str]]:
+    """Agrupa as linhas do CV por seção, a partir dos cabeçalhos detectados."""
+    secoes: dict[str, list[str]] = {}
+    atual: str | None = None
+    for bruto in linhas:
+        linha = bruto.strip()
+        tipo = _tipo_secao(linha)
+        if tipo:
+            atual = tipo
+            secoes.setdefault(atual, [])
+            continue
+        if atual and linha:
+            secoes[atual].append(linha)
+    return secoes
+
+
+def _itens_de_bloco(bloco: list[str]) -> list[str]:
+    """Quebra um bloco (skills/idiomas) em itens por vírgula, ';', '•' ou linha."""
+    itens: list[str] = []
+    for linha in bloco:
+        for parte in re.split(r"[,;•|/]", linha):
+            p = parte.strip(" -–\t")
+            if p and p not in itens:
+                itens.append(p)
+    return itens
+
+
+def _tem_marcador(bloco: list[str]) -> bool:
+    """Indica se o bloco usa marcadores (➢, •, …) para abrir cada registro."""
+    return any(_RE_MARCADOR.match(l) for l in bloco)
+
+
+def _dividir_por_marcador(bloco: list[str]) -> list[list[str]]:
+    """Divide o bloco em registros abertos por um marcador (formato padrão).
+
+    Cada linha com marcador (➢/•) inicia um novo registro; as linhas seguintes,
+    sem marcador (continuações, cargo/período, sub-bullets), pertencem a ele.
+    """
+    registros: list[list[str]] = []
+    for linha in bloco:
+        if _RE_MARCADOR.match(linha):
+            registros.append([_RE_MARCADOR.sub("", linha).strip()])
+        elif registros:
+            registros[-1].append(linha.strip())
+    return registros
+
+
+def _dividir_por_heuristica(bloco: list[str]) -> list[list[str]]:
+    """Divide um bloco sem marcadores por linha-título (ano ou separador forte).
+
+    Uma linha com separador forte (—, -, |, @) ou com ano abre um novo registro;
+    as linhas seguintes viram descrição desse registro.
+    """
+    registros: list[list[str]] = []
+    for linha in bloco:
+        titulo = bool(_RE_ANO.search(linha) or re.search(r"\s[—\-|@]\s", linha))
+        if titulo or not registros:
+            registros.append([linha])
+        else:
+            registros[-1].append(linha)
+    return registros
+
+
+def _extrair_periodo(texto: str) -> tuple[str, str]:
+    """Separa um trecho de período (anos/parênteses) do restante da linha."""
+    m = re.search(r"\(([^)]*\d{4}[^)]*)\)", texto)  # "(2020 – 2022)"
+    if m:
+        return m.group(1).strip(), (texto[: m.start()] + texto[m.end():]).strip(" -—|·")
+    anos = _RE_ANO.findall(texto)
+    if anos:
+        m2 = re.search(r"(19|20)\d{2}.*?(?:atual|presente|hoje|(?:19|20)\d{2})?", texto, re.IGNORECASE)
+        if m2:
+            periodo = m2.group(0).strip(" -—|·")
+            resto = (texto[: m2.start()] + texto[m2.end():]).strip(" -—|·")
+            return periodo, resto
+    return "", texto.strip(" -—|·")
+
+
+def _eh_linha_periodo(linha: str) -> bool:
+    """Heurística: a linha é só um período (ex.: 'fev/2026 – atual', 'Jun/2023 a jul/2024')."""
+    l = linha.strip(" ()")
+    return bool(_RE_ANO.search(l)) and len(l.split()) <= 6
+
+
+def _empresa_de_header(header: str) -> str:
+    """Extrai o nome da empresa do cabeçalho do registro (parte antes do '|').
+
+    Não remove '.' das bordas para preservar siglas como "S.A.".
+    """
+    return re.split(r"\s*\|\s*", header, maxsplit=1)[0].strip(" ·—–")
+
+
+def _limpar_bullet(linha: str) -> str:
+    """Remove um marcador de sub-item (o/•/▪/-) no início de uma linha de descrição."""
+    return _RE_SUBBULLET.sub("", linha.strip()).strip()
+
+
+def _experiencia_de_registro(reg: list[str]) -> ExperienciaItem | None:
+    """Monta uma experiência a partir de um registro com marcador (multi-linha).
+
+    Layout padrão: 1ª linha = empresa (| segmento), depois cargo, período e a
+    descrição (intro + sub-bullets).
+    """
+    if not reg:
+        return None
+    empresa = _empresa_de_header(reg[0])
+    corpo = reg[1:]
+    idx_periodo = next((i for i, l in enumerate(corpo) if _eh_linha_periodo(l)), None)
+    if idx_periodo is not None:
+        periodo = _limpar_bullet(corpo[idx_periodo]).strip(" ()")
+        cargo = " ".join(l.strip() for l in corpo[:idx_periodo]).strip()
+        desc_linhas = corpo[idx_periodo + 1:]
+    else:
+        periodo = ""
+        cargo = corpo[0].strip() if corpo else ""
+        desc_linhas = corpo[1:]
+    descricao = " ".join(_limpar_bullet(l) for l in desc_linhas if l.strip()).strip()
+    if not (cargo or empresa or descricao):
+        return None
+    return ExperienciaItem(cargo=cargo, empresa=empresa, periodo=periodo, descricao=descricao)
+
+
+def _parse_experiencias(bloco: list[str]) -> list[ExperienciaItem]:
+    if _tem_marcador(bloco):
+        itens = [_experiencia_de_registro(r) for r in _dividir_por_marcador(bloco)]
+        return [i for i in itens if i is not None]
+    # Fallback (formato de uma linha por vaga: "Cargo — Empresa (período)").
+    itens: list[ExperienciaItem] = []
+    for reg in _dividir_por_heuristica(bloco):
+        periodo, titulo = _extrair_periodo(reg[0])
+        partes = re.split(r"\s[—\-|@]\s", titulo, maxsplit=1)
+        cargo = partes[0].strip()
+        empresa = partes[1].strip() if len(partes) > 1 else ""
+        descricao = " ".join(l.strip() for l in reg[1:]).strip()
+        if cargo or empresa or descricao:
+            itens.append(ExperienciaItem(cargo=cargo, empresa=empresa, periodo=periodo, descricao=descricao))
+    return itens
+
+
+def _formacao_de_texto(texto: str) -> FormacaoItem | None:
+    """Monta uma formação a partir de uma linha 'Curso, Instituição, Local (período)'."""
+    periodo, resto = _extrair_periodo(texto)
+    resto = resto.strip(" -–—|·,")
+    partes = [p.strip(" -–—|·") for p in resto.split(",") if p.strip(" -–—|·")]
+    if not partes:
+        return None
+    curso = partes[0]
+    instituicao = ", ".join(partes[1:]) if len(partes) > 1 else ""
+    if not (curso or instituicao):
+        return None
+    return FormacaoItem(curso=curso, instituicao=instituicao, periodo=periodo)
+
+
+def _parse_formacao(bloco: list[str]) -> list[FormacaoItem]:
+    if _tem_marcador(bloco):
+        itens = [_formacao_de_texto(" ".join(r)) for r in _dividir_por_marcador(bloco)]
+        return [i for i in itens if i is not None]
+    # Fallback (formato de uma linha por curso: "Curso — Instituição (período)").
+    itens: list[FormacaoItem] = []
+    for reg in _dividir_por_heuristica(bloco):
+        periodo, titulo = _extrair_periodo(reg[0])
+        partes = re.split(r"\s[—\-|@]\s", titulo, maxsplit=1)
+        curso = partes[0].strip()
+        instituicao = partes[1].strip() if len(partes) > 1 else " ".join(reg[1:]).strip()
+        if curso or instituicao:
+            itens.append(FormacaoItem(curso=curso, instituicao=instituicao, periodo=periodo))
+    return itens
+
+
+@tool(
+    "estruturar_cv",
+    "Extrai do texto bruto de um CV os campos do currículo padronizado "
+    "(dados pessoais, resumo, experiências, formação, skills) para pré-preenchimento.",
+    EntradaEstruturarCV,
+)
+def estruturar_cv(cv_texto: str) -> CurriculoEstruturado:
+    texto = cv_texto or ""
+    linhas = texto.splitlines()
+    nao_vazias = [l.strip() for l in linhas if l.strip()]
+
+    email = (m.group(0) if (m := _RE_EMAIL.search(texto)) else "")
+    telefone = (m.group(0).strip() if (m := _RE_TELEFONE.search(texto)) else "")
+    linkedin = (m.group(0) if (m := _RE_LINKEDIN.search(texto)) else "")
+
+    # Nome: primeira linha "limpa" do topo (sem dígitos, sem e-mail, 2–6 palavras).
+    nome = ""
+    for linha in nao_vazias[:6]:
+        if _RE_EMAIL.search(linha) or any(c.isdigit() for c in linha) or _tipo_secao(linha):
+            continue
+        if 2 <= len(linha.split()) <= 6:
+            nome = linha
+            break
+
+    # Localização: linha "Cidade, UF" ou "Cidade, Estado, País" no topo
+    # (ex.: "São Paulo, SP", "Salvador, Bahia, Brasil.").
+    localizacao = ""
+    for linha in nao_vazias[:8]:
+        if _tipo_secao(linha) or _RE_EMAIL.search(linha) or any(c.isdigit() for c in linha):
+            continue
+        if (m := _RE_LOCALIZACAO.match(linha)):
+            localizacao = m.group(0).strip().rstrip(".").strip()
+            break
+
+    secoes = _fatiar_secoes(linhas)
+    resumo = " ".join(secoes.get("resumo", [])).strip()
+    experiencias = _parse_experiencias(secoes.get("experiencia", []))
+    formacao = _parse_formacao(secoes.get("formacao", []))
+    skills = _itens_de_bloco(secoes.get("skills", []))
+    idiomas = _itens_de_bloco(secoes.get("idiomas", []))
+    certificacoes = [l for l in secoes.get("certificacoes", []) if l]
+
+    return CurriculoEstruturado(
+        dados_pessoais=DadosPessoais(
+            nome=nome, email=email, telefone=telefone,
+            localizacao=localizacao, linkedin=linkedin,
+        ),
+        resumo=resumo,
+        experiencias=experiencias,
+        formacao=formacao,
+        skills=skills,
+        idiomas=idiomas,
+        certificacoes=certificacoes,
+    )
+
+
 @tool(
     "recomendar_projetos_star",
     "Cruza os requisitos da vaga com o portfólio STAR e retorna os projetos mais aderentes.",
@@ -290,6 +801,7 @@ def recomendar_projetos_star(
                 resultado=str(proj.get("resultado", "")),
                 skills_tags=str(proj.get("skills_tags", "")),
                 area=str(proj.get("area", "")),
+                link_repo=str(proj.get("link_repo", "")),
             )
         )
     return recomendados

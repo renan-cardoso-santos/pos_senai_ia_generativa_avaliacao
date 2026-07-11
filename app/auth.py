@@ -39,8 +39,8 @@ def cadastrar(email: str, senha: str, nome: str = "") -> tuple[bool, str]:
     email = (email or "").strip().lower()
     if not email or "@" not in email:
         return False, "Informe um e-mail válido."
-    if len(senha) < 4:
-        return False, "A senha precisa ter ao menos 4 caracteres."
+    if len(senha) < 8:
+        return False, "A senha precisa ter ao menos 8 caracteres."
     if db.buscar_usuario_por_email(email):
         return False, "Já existe uma conta com esse e-mail."
     db.criar_usuario(email, hash_senha(senha), nome)

@@ -1,12 +1,12 @@
-# Tema do RecrutaMe — paleta aprovada (azul confiança + verde sucesso).
+# Tema do RecrutaMe — paleta "terracota / walnut" (tons quentes de marrom).
 # Streamlit usa UM tema por vez; abaixo o tema CLARO como padrão.
-# Os valores do modo escuro estão documentados no plano
-# (docs/plano_implementacao_recrutame.md, seção 5) para troca manual.
+# A paleta completa (CSS custom properties) vive em app/tema.py::CSS_PALETA
+# e é injetada globalmente por tema.aplicar_estilo_global().
 [theme]
-primaryColor = "#2563EB"          # azul confiança — botões, links, foco
-backgroundColor = "#F8FAFC"       # fundo da app
-secondaryBackgroundColor = "#FFFFFF"  # cards / sidebar
-textColor = "#0F172A"
+primaryColor = "#8b5e34"          # toffee-brown — botões, links, foco
+backgroundColor = "#ffedd8"       # antique-white — fundo da app
+secondaryBackgroundColor = "#f3d5b5"  # soft-apricot — cards / topo
+textColor = "#583101"             # walnut-3 — texto principal
 font = "sans serif"
 
 [server]

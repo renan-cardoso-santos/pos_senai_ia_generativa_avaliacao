@@ -5,7 +5,7 @@ Plataforma **unificada de candidatura**: análise de currículo × vaga, sugest�
 > **Entrega — Avaliação Intermediária (30%).** Toda a interface está funcional em Streamlit com a **IA simulada (mock)**: nenhum LLM é chamado. Onde a IA atuará, um `MockIAService` devolve respostas fixas e realistas com o **mesmo formato** do serviço real. Na Avaliação Final (70%), o mock é trocado pelo LLM da Anthropic **sem alterar nenhuma tela**.
 
 - 🔗 **Endpoint público:** _(a publicar — ver [Deploy](#deploy))_
-- 💻 **Repositório:** _(link do GitHub)_
+- 💻 **Repositório:** [github.com/pos_senai_ia_generativa_avaliacao](#https://github.com/renan-cardoso-santos/pos_senai_ia_generativa_avaliacao)
 
 ---
 

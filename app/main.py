@@ -20,12 +20,13 @@ if _RAIZ not in sys.path:
 
 import streamlit as st  # noqa: E402
 
-from app import db  # noqa: E402
+from app import db, tema  # noqa: E402
 from app.telas import (  # noqa: E402
     analise,
     entrevista,
     historico_vagas,
     login as tela_login,
+    perfil,
     portfolio,
     sugestoes,
 )
@@ -35,10 +36,21 @@ st.set_page_config(page_title="RecrutaMe", page_icon="🎯", layout="wide")
 # Telas internas (exigem login) → função render.
 TELAS = {
     "Histórico de vagas": historico_vagas.render,
+    "Perfil profissional": perfil.render,
     "Nova análise": analise.render,
     "Sugestões de melhoria": sugestoes.render,
     "Portfólio STAR": portfolio.render,
     "Preparação de entrevista": entrevista.render,
+}
+
+# Ícone exibido em cada item do menu (rótulo interno permanece sem ícone).
+TELA_ICONES = {
+    "Histórico de vagas": "🗂️",
+    "Perfil profissional": "👤",
+    "Nova análise": "📝",
+    "Sugestões de melhoria": "✨",
+    "Portfólio STAR": "⭐",
+    "Preparação de entrevista": "🎤",
 }
 
 
@@ -60,23 +72,30 @@ def main() -> None:
         tela_login.render()
         return
 
-    # Logado → sidebar com navegação.
-    with st.sidebar:
-        st.title("🎯 RecrutaMe")
-        st.caption(f"Olá, {st.session_state.usuario.get('nome') or st.session_state.usuario['email']}")
-        st.divider()
-        escolha = st.radio(
-            "Navegação",
-            list(TELAS.keys()),
-            index=list(TELAS.keys()).index(st.session_state.get("tela", "Histórico de vagas")),
-            label_visibility="collapsed",
-        )
-        st.session_state.tela = escolha
-        st.divider()
-        st.caption("IA: **modo simulado (mock)** — Parte 1")
+    # Logado → barra de navegação SUPERIOR (horizontal).
+    tema.aplicar_estilo_global()
+
+    col_marca, col_usuario, col_sair = st.columns([3, 3, 1.2], vertical_alignment="center")
+    with col_marca:
+        st.markdown("### 🎯 RecrutaMe")
+    with col_usuario:
+        nome = st.session_state.usuario.get("nome") or st.session_state.usuario["email"]
+        st.caption(f"Olá, {nome} · IA: **modo simulado (mock)** — Parte 1")
+    with col_sair:
         if st.button("Sair", use_container_width=True):
             st.session_state.usuario = None
             st.rerun()
+
+    escolha = st.radio(
+        "Navegação",
+        list(TELAS.keys()),
+        index=list(TELAS.keys()).index(st.session_state.get("tela", "Histórico de vagas")),
+        horizontal=True,
+        label_visibility="collapsed",
+        format_func=lambda t: f"{TELA_ICONES.get(t, '')}  {t}".strip(),
+    )
+    st.session_state.tela = escolha
+    st.divider()
 
     TELAS[st.session_state.tela]()
 

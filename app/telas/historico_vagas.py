@@ -77,13 +77,9 @@ def render() -> None:
         "Acompanhe suas candidaturas em um quadro Kanban por status.",
     )
     usuario_id = st.session_state.usuario["id"]
-
-    top_l, top_r = st.columns([3, 1])
-    with top_r:
-        if st.button("➕ Nova análise", type="primary", use_container_width=True):
-            ui.navegar("Nova análise")
-
     vagas = db.listar_vagas(usuario_id)
+
+    # Estado vazio → um único CTA que orienta o primeiro passo.
     if not vagas:
         ui.estado_vazio(
             "Você ainda não tem vagas. Comece analisando um CV contra uma vaga.",
@@ -93,10 +89,22 @@ def render() -> None:
         )
         return
 
+    # Com vagas → ações rápidas à direita do board (nova análise + arquivamento).
+    _, top_r = st.columns([3, 1])
+    with top_r:
+        if st.button("➕ Nova análise", type="primary", use_container_width=True):
+            ui.navegar("Nova análise")
+
     _metricas(vagas)
     filtros = _barra_filtros(vagas)
     filtradas = [v for v in vagas if _passa_filtro(v, filtros)]
     st.caption(f"Mostrando {len(filtradas)} de {len(vagas)} vaga(s)")
+
+    modo_selecao = st.toggle(
+        "🗄️ Selecionar cards para arquivar",
+        key="modo_arquivar",
+        help="Marque os cards que deseja tirar do quadro ativo e clique em arquivar.",
+    )
 
     # Board Kanban: uma coluna por status, com contagem no topo.
     colunas = st.columns(len(tema.STATUS_FLUXO))
@@ -108,13 +116,61 @@ def render() -> None:
                 unsafe_allow_html=True,
             )
             for v in do_status:
-                _card(v)
+                _card(v, modo_selecao)
+
+    if modo_selecao:
+        _barra_arquivamento(filtradas)
+
+    _secao_arquivadas(usuario_id)
 
 
-def _card(v) -> None:
+def _barra_arquivamento(vagas: list) -> None:
+    """Ação em lote: arquiva todos os cards marcados via checkbox."""
+    selecionadas = [v["id"] for v in vagas if st.session_state.get(f"sel_{v['id']}")]
+    st.divider()
+    c_info, c_acao = st.columns([3, 1])
+    c_info.caption(f"{len(selecionadas)} card(s) selecionado(s) para arquivar.")
+    with c_acao:
+        if st.button(
+            "🗄️ Arquivar selecionados",
+            type="primary",
+            use_container_width=True,
+            disabled=not selecionadas,
+        ):
+            n = db.arquivar_vagas(selecionadas, arquivada=True)
+            for vid in selecionadas:  # limpa o estado dos checkboxes
+                st.session_state.pop(f"sel_{vid}", None)
+            st.toast(f"{n} vaga(s) arquivada(s).", icon="🗄️")
+            st.rerun()
+
+
+def _secao_arquivadas(usuario_id: int) -> None:
+    """Expander com as vagas arquivadas e opção de desarquivar individualmente."""
+    arquivadas = db.listar_vagas_arquivadas(usuario_id)
+    if not arquivadas:
+        return
+    with st.expander(f"🗄️ Arquivadas ({len(arquivadas)})", expanded=False):
+        for v in arquivadas:
+            c_txt, c_btn = st.columns([4, 1])
+            c_txt.markdown(
+                f"**{v['cargo'] or 'Cargo'}** · {v['empresa'] or 'Empresa'} "
+                f"&nbsp;{tema.badge_status(v['status'])}",
+                unsafe_allow_html=True,
+            )
+            if c_btn.button("↩️ Desarquivar", key=f"unarch_{v['id']}", use_container_width=True):
+                db.arquivar_vagas([v["id"]], arquivada=False)
+                st.toast("Vaga restaurada ao quadro.", icon="↩️")
+                st.rerun()
+
+
+def _card(v, modo_selecao: bool = False) -> None:
     with st.container(border=True):
+        if modo_selecao:
+            st.checkbox("Selecionar para arquivar", key=f"sel_{v['id']}", label_visibility="collapsed")
         st.markdown(f"**{v['cargo'] or 'Cargo'}**")
         st.caption(v["empresa"] or "Empresa")
+        if v["link"]:
+            st.markdown(f"[🔗 Link da empresa]({v['link']})")
         if v["score_aderencia"] is not None:
             cor = tema.cor_score(v["score_aderencia"])
             st.markdown(
