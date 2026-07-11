@@ -44,7 +44,7 @@ def render() -> None:
         "Tom da carta", options=["formal", "profissional", "entusiasmado"], value="profissional"
     )
 
-    if st.button("✍️ Gerar pacote de entrevista", type="primary"):
+    if st.button("✨ Gerar pacote de entrevista", type="primary"):
         with st.spinner("Montando seu pacote de entrevista…"):
             ia = get_ia_service()
             portfolio = [dict(p) for p in db.listar_portfolio(usuario_id)]

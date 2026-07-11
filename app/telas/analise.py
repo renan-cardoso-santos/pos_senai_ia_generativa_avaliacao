@@ -13,8 +13,9 @@ import re
 import streamlit as st
 
 from agents.ia_service import get_ia_service
-from agents.modelos import AnaliseCV
+from agents.modelos import AnaliseCV, VagaEnriquecida
 from app import db, exemplos, exportacao_relatorio, tema, ui
+from tools.definicoes import localizacao_incompativel
 
 # Cor semântica de cada prioridade de gap (alta→erro, média→atenção, baixa→ok).
 _PRIORIDADE_CORES = {"ALTA": "#DC2626", "MÉDIA": "#D97706", "BAIXA": "#16A34A"}
@@ -75,23 +76,28 @@ def render() -> None:
     pronto = bool(cv_texto) and bool(vaga_texto.strip())
     if not pronto:
         st.caption("Cole a descrição da vaga para habilitar a análise.")
-    if st.button("🔍 Analisar CV × vaga", type="primary", disabled=not pronto):
-        with st.spinner("Analisando aderência…"):
+    if st.button("✨ Analisar CV × vaga", type="primary", disabled=not pronto):
+        with st.spinner("Analisando aderência e enriquecendo a vaga…"):
             ia = get_ia_service()
             analise: AnaliseCV = ia.analisar_cv_vaga(cv_texto, vaga_texto)
+            # Enriquecimento: a IA infere contexto da empresa (segmento, porte,
+            # Glassdoor) e da vaga (jornada, senioridade, stack, localização).
+            enriquecimento = ia.enriquecer_vaga(empresa, cargo, vaga_texto, link_empresa.strip())
             # upsert por (usuário, empresa, cargo): reanalisar a mesma vaga
             # atualiza o card existente em vez de duplicá-lo no Kanban.
             vaga_id = db.upsert_vaga(
                 usuario_id, empresa, cargo, vaga_texto, link=link_empresa.strip(), status="salva"
             )
             db.atualizar_score(vaga_id, analise.score)
+            db.atualizar_enriquecimento(vaga_id, enriquecimento.model_dump())
             db.salvar_analise(vaga_id, curriculo_id, analise.model_dump())
             st.session_state.vaga_selecionada = vaga_id
         st.toast("Análise concluída e salva no histórico.", icon="✅")
 
     vaga_id = st.session_state.get("vaga_selecionada")
     if vaga_id:
-        _mostrar_resultado(vaga_id)
+        loc_usuario = (estruturado.get("dados_pessoais") or {}).get("localizacao") or ""
+        _mostrar_resultado(vaga_id, loc_usuario)
 
 
 def _badge_prioridade(prioridade: str) -> str:
@@ -109,7 +115,46 @@ def _nome_arquivo(empresa: str, cargo: str) -> str:
     return f"relatorio_match_{base}.docx"
 
 
-def _mostrar_resultado(vaga_id: int) -> None:
+def _bloco_contexto_vaga(enr: VagaEnriquecida, loc_usuario: str) -> None:
+    """Renderiza o enriquecimento da vaga e a flag de localização incompatível."""
+    # Flag vermelha: vaga presencial/híbrida em local diferente do usuário.
+    if localizacao_incompativel(loc_usuario, enr.localizacao, enr.jornada):
+        st.markdown(
+            f'<div style="background:#FEF2F2;border:1px solid #DC2626;border-left:6px solid '
+            f'#DC2626;border-radius:8px;padding:10px 14px;margin:6px 0;">'
+            f'<b style="color:#DC2626;">🚩 Localização incompatível</b><br>'
+            f'<span style="color:#7F1D1D;">A vaga é <b>{enr.jornada or "presencial"}</b> em '
+            f'<b>{enr.localizacao}</b>, mas seu currículo indica <b>{loc_usuario}</b>. '
+            f'Verifique a exigência de deslocamento/mudança antes de aplicar.</span></div>',
+            unsafe_allow_html=True,
+        )
+
+    if not enr.tem_dados():
+        return
+
+    st.markdown("##### Contexto da vaga e da empresa")
+    c1, c2, c3, c4 = st.columns(4)
+    if enr.segmento:
+        c1.markdown(f"**Segmento**\n\n{enr.segmento}")
+    if enr.porte:
+        c2.markdown(f"**Porte**\n\n{enr.porte}")
+    if enr.glassdoor_score:
+        c3.markdown(f"**Glassdoor**\n\n⭐ {enr.glassdoor_score:.1f}/5")
+    if enr.localizacao:
+        c4.markdown(f"**Localização**\n\n{enr.localizacao}")
+
+    linha = []
+    if enr.senioridade:
+        linha.append(f"**Senioridade:** {enr.senioridade}")
+    if enr.jornada:
+        linha.append(f"**Jornada:** {enr.jornada}")
+    if linha:
+        st.markdown(" · ".join(linha))
+    if enr.stack:
+        st.markdown("**Stack:** " + ", ".join(f"`{s}`" for s in enr.stack))
+
+
+def _mostrar_resultado(vaga_id: int, loc_usuario: str = "") -> None:
     dados = db.ultima_analise(vaga_id)
     if not dados:
         return
@@ -120,6 +165,11 @@ def _mostrar_resultado(vaga_id: int) -> None:
 
     st.divider()
     st.subheader("Resumo do match")
+
+    # Enriquecimento da vaga/empresa + flag de localização (feature de contexto).
+    enr_dados = db.enriquecimento_da_vaga(vaga_id)
+    if enr_dados:
+        _bloco_contexto_vaga(VagaEnriquecida.model_validate(enr_dados), loc_usuario)
 
     # Cards de métrica: score aprofundado, score ATS e cobertura de must-haves.
     atendidos, total, pct = analise.cobertura_must_have()

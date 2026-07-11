@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections import Counter
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -29,13 +30,16 @@ from agents.modelos import (
     DadosPessoais,
     ExperienciaItem,
     FormacaoItem,
+    InsightsHistorico,
     LacunaPriorizada,
     MustHaveItem,
     ProjetoRecomendado,
     RequisitoItem,
     RespostaEntrevista,
+    ResumoVaga,
     SugestaoSecao,
     TextoGerado,
+    VagaEnriquecida,
 )
 
 # ---------------------------------------------------------------------------
@@ -151,6 +155,20 @@ class EntradaRecomendarStar(BaseModel):
 
 class EntradaEstruturarCV(BaseModel):
     cv_texto: str = Field(description="Texto bruto extraído do CV (PDF/DOCX)")
+
+
+class EntradaEnriquecerVaga(BaseModel):
+    empresa: str = Field(default="", description="Nome da empresa")
+    cargo: str = Field(default="", description="Cargo/título da vaga")
+    vaga_texto: str = Field(description="Descrição completa da vaga")
+    link: str = Field(default="", description="Link/site da empresa ou da vaga (opcional)")
+
+
+class EntradaInsightsHistorico(BaseModel):
+    vagas: list[ResumoVaga] = Field(
+        default_factory=list,
+        description="Recorte das vagas do histórico (status, score e enriquecimento)",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -805,3 +823,277 @@ def recomendar_projetos_star(
             )
         )
     return recomendados
+
+
+# ---------------------------------------------------------------------------
+# Enriquecimento da vaga/empresa — contexto inferido pela IA
+# ---------------------------------------------------------------------------
+# Dicionário de stack: termo canônico → variações a procurar na descrição da vaga.
+_STACK_CATALOGO: dict[str, tuple[str, ...]] = {
+    "Python": ("python",),
+    "SQL": ("sql",),
+    "R": (" r ", " r,", "linguagem r"),
+    "Java": ("java",),
+    "JavaScript": ("javascript", "node.js", "nodejs"),
+    "Machine Learning": ("machine learning", "aprendizado de máquina", "aprendizado de maquina", "ml "),
+    "Deep Learning": ("deep learning", "redes neurais"),
+    "IA Generativa": ("ia generativa", "generative ai", "genai"),
+    "LLM": ("llm", "large language model", "modelos de linguagem"),
+    "Cloud": ("nuvem", "cloud", "aws", "azure", "gcp", "google cloud"),
+    "Docker": ("docker", "container"),
+    "Power BI": ("power bi",),
+    "Spark": ("spark",),
+    "Airflow": ("airflow",),
+    "Kubernetes": ("kubernetes", "k8s"),
+    "Sistemas Embarcados": ("embarcado", "embarcados", "embedded"),
+}
+
+# Palavras que sugerem o segmento da empresa (heurística do mock; a IA real
+# pesquisaria a empresa). Ordem importa: o primeiro match vence.
+_SEGMENTO_PISTAS: tuple[tuple[str, str], ...] = (
+    ("Educação / Indústria", ("senai", "sesi", "fiesc", "aprendizagem industrial")),
+    ("Tecnologia / Software", ("software", "tecnologia", "startup", "saas", "ti ")),
+    ("Financeiro / Fintech", ("banco", "fintech", "financeir", "seguros", "crédito", "credito")),
+    ("Saúde", ("saúde", "saude", "hospital", "clínic", "clinic", "farmac")),
+    ("Varejo / E-commerce", ("varejo", "e-commerce", "ecommerce", "loja")),
+    ("Educação", ("educaç", "educac", "ensino", "faculdade", "universidade")),
+)
+
+_PORTES = ("Startup", "Pequena", "Média", "Grande")
+
+
+def _detectar_stack(vaga_low: str) -> list[str]:
+    """Termos de stack cujas variações aparecem literalmente na descrição da vaga."""
+    achados: list[str] = []
+    for canonico, variacoes in _STACK_CATALOGO.items():
+        if any(v in vaga_low for v in variacoes):
+            achados.append(canonico)
+    return achados
+
+
+def _detectar_jornada(vaga_low: str) -> str:
+    """Modelo de trabalho inferido da descrição (Remoto/Híbrido/Presencial)."""
+    if any(t in vaga_low for t in ("remoto", "remota", "home office", "home-office", "anywhere")):
+        return "Remoto"
+    if any(t in vaga_low for t in ("híbrido", "hibrido", "hybrid")):
+        return "Híbrido"
+    if any(t in vaga_low for t in ("presencial", "no local", "on-site", "on site", "local de atuação")):
+        return "Presencial"
+    return ""
+
+
+def _detectar_senioridade(texto_low: str) -> str:
+    """Senioridade inferida do cargo/descrição."""
+    if any(t in texto_low for t in ("estág", "estag", "trainee")):
+        return "Estágio"
+    if any(t in texto_low for t in ("sênior", "senior", " sr", "sr.")):
+        return "Sênior"
+    if "pleno" in texto_low or " pl" in texto_low:
+        return "Pleno"
+    if any(t in texto_low for t in ("júnior", "junior", " jr", "jr.")):
+        return "Júnior"
+    return ""
+
+
+# Local de atuação declarado: "Local de atuação: Florianópolis/SC", "Cidade: ...".
+_RE_LOCAL_ROTULO = re.compile(
+    r"(?:local(?:\s+de\s+atua[çc][ãa]o)?|cidade|localiza[çc][ãa]o)\s*[:\-]\s*([^\n;.]+)",
+    re.IGNORECASE,
+)
+# Fallback: "Cidade/UF" ou "Cidade - UF" (UF = 2 letras).
+_RE_CIDADE_UF = re.compile(r"([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ .'-]{2,40})\s*[/\-]\s*([A-Z]{2})\b")
+
+
+def _detectar_localizacao(vaga_texto: str) -> str:
+    """Local de atuação da vaga, por rótulo explícito ou padrão Cidade/UF."""
+    if m := _RE_LOCAL_ROTULO.search(vaga_texto or ""):
+        return m.group(1).strip(" .,-")
+    if m := _RE_CIDADE_UF.search(vaga_texto or ""):
+        return f"{m.group(1).strip()}/{m.group(2)}"
+    return ""
+
+
+def _pseudo_glassdoor(empresa: str) -> float:
+    """Nota Glassdoor plausível e determinística (mock; a IA real pesquisaria).
+
+    Faixa 3.4–4.6 seeded pelo nome da empresa — estável entre execuções.
+    """
+    if not empresa.strip():
+        return 0.0
+    semente = sum(ord(c) for c in empresa.lower())
+    return round(3.4 + (semente % 13) / 10, 1)  # 3.4 … 4.6
+
+
+def _detectar_segmento(empresa: str, vaga_low: str) -> str:
+    alvo = f"{empresa.lower()} {vaga_low}"
+    for segmento, pistas in _SEGMENTO_PISTAS:
+        if any(p in alvo for p in pistas):
+            return segmento
+    return "Tecnologia / Software"
+
+
+@tool(
+    "enriquecer_vaga",
+    "Enriquece a vaga com contexto da empresa (segmento, porte, nota Glassdoor) e "
+    "da vaga (jornada, senioridade, stack, localização), inferidos da descrição.",
+    EntradaEnriquecerVaga,
+)
+def enriquecer_vaga(
+    empresa: str = "", cargo: str = "", vaga_texto: str = "", link: str = ""
+) -> VagaEnriquecida:
+    """Mock determinístico: infere o enriquecimento a partir dos textos.
+
+    Para a vaga de exemplo (FIESC/SENAI) devolve um enriquecimento curado,
+    coerente com as imagens de referência. Para as demais, aplica heurísticas
+    sobre a descrição (stack/jornada/senioridade/localização) e valores
+    plausíveis e estáveis para os campos da empresa (segmento/porte/Glassdoor),
+    que a IA real (Parte 2) obteria por pesquisa.
+    """
+    if _ASSINATURA_VAGA_EXEMPLO in (vaga_texto or ""):
+        return VagaEnriquecida(
+            segmento="Educação profissional / Indústria (Sistema FIESC/SENAI)",
+            porte="Grande",
+            glassdoor_score=4.1,
+            jornada="Presencial",
+            senioridade="Pleno",
+            stack=["Python", "Machine Learning", "IA Generativa", "LLM", "Cloud", "Sistemas Embarcados"],
+            localizacao="Florianópolis/SC",
+        )
+
+    vaga_low = (vaga_texto or "").lower()
+    texto_cargo_low = f"{cargo} {vaga_texto}".lower()
+    return VagaEnriquecida(
+        segmento=_detectar_segmento(empresa, vaga_low),
+        porte=_PORTES[(sum(ord(c) for c in (empresa or "x").lower())) % len(_PORTES)],
+        glassdoor_score=_pseudo_glassdoor(empresa),
+        jornada=_detectar_jornada(vaga_low),
+        senioridade=_detectar_senioridade(texto_cargo_low),
+        stack=_detectar_stack(vaga_low),
+        localizacao=_detectar_localizacao(vaga_texto),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Flag de localização — usuário × vaga
+# ---------------------------------------------------------------------------
+def _tokens_local(texto: str) -> set[str]:
+    """Tokens normalizados (sem acento) de uma localização, ignorando conectivos."""
+    ignorar = {"de", "do", "da", "e", "brasil", "br"}
+    base = _sem_acento(texto)
+    return {t for t in re.split(r"[^a-z0-9]+", base) if len(t) >= 2 and t not in ignorar}
+
+
+def localizacao_incompativel(loc_usuario: str, loc_vaga: str, jornada: str = "") -> bool:
+    """True quando a vaga exige presença em local distinto do usuário.
+
+    Regras: trabalho **remoto** nunca é incompatível (local irrelevante); se
+    faltar a localização de um dos lados, não há como afirmar → não sinaliza.
+    Caso contrário, sinaliza quando os locais não compartilham nenhum token
+    (cidade nem UF) — ex.: "São Paulo, SP" × "Florianópolis/SC".
+    """
+    if "remoto" in _sem_acento(jornada):
+        return False
+    if not (loc_usuario or "").strip() or not (loc_vaga or "").strip():
+        return False
+    return _tokens_local(loc_usuario).isdisjoint(_tokens_local(loc_vaga))
+
+
+# ---------------------------------------------------------------------------
+# Insights do histórico de vagas — leitura agregada do funil
+# ---------------------------------------------------------------------------
+def _mais_comum(valores: list[str]) -> str:
+    """Valor não-vazio mais frequente da lista (moda); '' se todos vazios."""
+    filtrados = [str(v).strip() for v in valores if v and str(v).strip()]
+    if not filtrados:
+        return ""
+    return Counter(filtrados).most_common(1)[0][0]
+
+
+@tool(
+    "gerar_insights_historico",
+    "Resume o histórico de candidaturas em um parágrafo curto de insights "
+    "(distribuição no funil, score médio, melhor match e padrões do perfil).",
+    EntradaInsightsHistorico,
+)
+def gerar_insights_historico(vagas: list[Any] | None = None) -> InsightsHistorico:
+    """Mock determinístico: sintetiza o funil em 3–4 frases.
+
+    Aceita `ResumoVaga` ou dicts equivalentes. Calcula distribuição por status,
+    score médio, melhor match e os padrões predominantes (segmento, senioridade,
+    jornada, stack), fechando com uma recomendação acionável. Determinístico:
+    mesma base → mesmo texto.
+    """
+    registros = [
+        v.model_dump() if isinstance(v, ResumoVaga) else dict(v) for v in (vagas or [])
+    ]
+    total = len(registros)
+    if not total:
+        return InsightsHistorico(
+            paragrafo=(
+                "Seu histórico ainda está vazio. Assim que você analisar vagas, os "
+                "insights sobre o seu funil de candidaturas aparecem aqui."
+            )
+        )
+
+    status_count = Counter((r.get("status") or "salva") for r in registros)
+    salvas = status_count.get("salva", 0)
+    aplicadas = status_count.get("aplicada", 0)
+    entrevistas = status_count.get("entrevista", 0)
+    ofertas = status_count.get("oferta", 0)
+    rejeitadas = status_count.get("rejeitada", 0)
+
+    scores = [r.get("score") for r in registros if isinstance(r.get("score"), (int, float))]
+    media = round(sum(scores) / len(scores)) if scores else None
+
+    com_score = [r for r in registros if isinstance(r.get("score"), (int, float))]
+    melhor = max(com_score, key=lambda r: r.get("score")) if com_score else None
+
+    segmento_top = _mais_comum([r.get("segmento", "") for r in registros])
+    jornada_top = _mais_comum([r.get("jornada", "") for r in registros])
+    senioridade_top = _mais_comum([r.get("senioridade", "") for r in registros])
+    stack_top = _mais_comum([s for r in registros for s in (r.get("stack") or [])])
+
+    # 1ª frase — volume e distribuição no funil.
+    frases = [
+        f"Você acompanha {total} candidatura(s): {salvas} salva(s), {aplicadas} "
+        f"aplicada(s), {entrevistas} em entrevista, {ofertas} oferta(s) e "
+        f"{rejeitadas} rejeitada(s)."
+    ]
+
+    # 2ª frase — score médio e melhor match.
+    if media is not None:
+        frase2 = f"O score médio de aderência é {media}/100"
+        if melhor:
+            alvo = melhor.get("cargo") or melhor.get("empresa") or "uma vaga"
+            empresa_melhor = melhor.get("empresa")
+            onde = f" na {empresa_melhor}" if empresa_melhor else ""
+            frase2 += f", e seu melhor match é {alvo}{onde} ({melhor.get('score')}/100)"
+        frases.append(frase2 + ".")
+
+    # 3ª frase — padrões predominantes do perfil (só se houver enriquecimento).
+    padroes = []
+    if senioridade_top:
+        padroes.append(f"vagas {senioridade_top}")
+    if segmento_top:
+        padroes.append(f"no segmento de {segmento_top}")
+    if jornada_top:
+        padroes.append(f"em regime {jornada_top.lower()}")
+    if padroes:
+        extra = f", com {stack_top} como tecnologia mais recorrente" if stack_top else ""
+        frases.append("Seu funil concentra " + " ".join(padroes) + extra + ".")
+
+    # 4ª frase — recomendação acionável, priorizada pelo estágio do funil.
+    if ofertas:
+        nudge = "Você já tem oferta(s) — priorize as de maior aderência ao decidir."
+    elif entrevistas:
+        nudge = "Foque a preparação nas vagas em entrevista para elevar a conversão."
+    elif salvas and salvas >= aplicadas:
+        nudge = (
+            "Há vagas ainda 'salvas' — avance as mais aderentes para 'aplicada' e "
+            "mantenha o funil ativo."
+        )
+    else:
+        nudge = "Continue analisando novas vagas para enriquecer suas recomendações."
+    frases.append(nudge)
+
+    return InsightsHistorico(paragrafo=" ".join(frases))

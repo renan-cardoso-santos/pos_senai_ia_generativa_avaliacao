@@ -1,10 +1,14 @@
+<p align="center">
+  <img src="docs/assets/recrutame_banner.svg" alt="RecrutaMe.AI — copiloto de candidatura com IA" width="100%">
+</p>
+
 # RecrutaMe 🎯
 
 Plataforma **unificada de candidatura**: análise de currículo × vaga, sugestões de melhoria, portfólio STAR e preparação de entrevista (carta, pitch e respostas) — num único "pacote de candidatura", com foco no mercado **PT-BR** e em candidatos técnicos.
 
 > **Entrega — Avaliação Intermediária (30%).** Toda a interface está funcional em Streamlit com a **IA simulada (mock)**: nenhum LLM é chamado. Onde a IA atuará, um `MockIAService` devolve respostas fixas e realistas com o **mesmo formato** do serviço real. Na Avaliação Final (70%), o mock é trocado pelo LLM da Anthropic **sem alterar nenhuma tela**.
 
-- 🔗 **Endpoint público:** _(a publicar — ver [Deploy](#deploy))_
+- 🔗 **Testar a aplicação (endpoint público):** **https://pos-senai-ia-generativa-avaliacao.onrender.com** — hospedado no Render (plano Free). Login demo: `demo@recrutame.dev` / `demo1234`. O primeiro acesso pode levar até ~1 min (a hospedagem gratuita hiberna quando ociosa — ver [Deploy](#deploy)).
 - 💻 **Repositório:** [github.com/pos_senai_ia_generativa_avaliacao](#https://github.com/renan-cardoso-santos/pos_senai_ia_generativa_avaliacao)
 
 ---
@@ -13,15 +17,16 @@ Plataforma **unificada de candidatura**: análise de currículo × vaga, sugest�
 
 **Problema.** Candidatos — especialmente em transição para áreas técnicas — perdem tempo adaptando currículo para cada vaga, escrevendo cartas do zero e preparando entrevistas sem saber *quais dos seus projetos citar*. As ferramentas existentes são fragmentadas e, quando geram texto, **inventam métricas** que o candidato não tem como sustentar.
 
-**Solução.** O RecrutaMe reúne o fluxo inteiro num só lugar:
+**Solução.** Um **fluxo unificado**, do currículo à oferta, em um só lugar:
 
-| Etapa | O que faz |
-|---|---|
-| **Análise CV × vaga** | Score de aderência, requisitos atendidos e lacunas |
-| **Sugestões de melhoria** | Reescrita do CV por seção + palavras-chave ATS |
-| **Portfólio STAR** | Banco pessoal de projetos (Situação–Tarefa–Ação–Resultado) e recomendação de **quais citar** para a vaga |
-| **Preparação de entrevista** | Carta, pitch, respostas comuns e projetos STAR — exportáveis |
-| **Histórico (Kanban)** | Acompanhamento das candidaturas por status |
+| Etapa | Feature | Valor entregue |
+|---|---|---|
+| **Entender** | Análise CV × Vaga | Score de aderência, must-haves e gaps priorizados |
+| **Decidir** | Contexto da vaga/empresa | Segmento, porte, Glassdoor, jornada, senioridade, stack + **flag de localização** |
+| **Melhorar** | Sugestões de CV | Reescrita por seção + palavras-chave ATS |
+| **Provar** | Portfólio STAR | Banco pessoal de projetos (STAR) e recomendação de **quais citar** por vaga |
+| **Preparar** | Pacote de entrevista | Carta, pitch e respostas comuns, exportáveis |
+| **Gerir** | Kanban + Insights do funil | Status, comentários por vaga e leitura agregada da busca |
 
 **Diferenciais** (ver [análise de mercado e SWOT](docs/analise_mercado_swot_recrutame.md)): recomendação de **projetos STAR do portfólio pessoal** (pouco atendida por Teal, Huntr, Jobscan) e **grounding anti-alucinação** (regra de "não inventar números").
 
@@ -138,32 +143,43 @@ Honestamente, houve limitações e ajustes manuais:
 
 | Critério | Pontos | Status | Evidência |
 |---|---|---|---|
-| **Endpoint funcional** | 8 | ⚠️ App 100% funcional localmente; **falta publicar** o endpoint | Boot HTTP 200, todas as telas navegáveis, interações com mock OK (ver [Deploy](#deploy)) |
+| **Endpoint funcional** | 8 | ✅ Publicado no Render (Free) | [Endpoint público](https://pos-senai-ia-generativa-avaliacao.onrender.com); todas as telas navegáveis, interações com mock OK (ver [Deploy](#deploy)) |
 | **Complexidade e ambição** | 6 | ✅ | 6 telas, upload/parsing, Kanban com filtros, wizard, tabs, export; visão clara de integração da IA (tools + Pydantic) — é o exemplo "Excelente" do edital |
-| **Repositório GitHub** | 4 | ⚠️ Estrutura/`.gitignore`/código prontos; **falta `git init` + commits + push** | Estrutura de pastas clara, `.gitignore` adequado |
+| **Repositório GitHub** | 4 | ✅ Publicado no GitHub | Estrutura de pastas clara, `.gitignore` adequado, commits por etapa |
 | **README (documentação)** | 8 | ✅ | Este arquivo: problema+solução+IA futura, design, o que funcionou, o que não funcionou |
 | **Uso efetivo do agente** | 4 | ✅ | Seções 4–6; prints em `docs/prints/`, construção incremental |
 
 ### Ações pendentes para a entrega (só você pode concluir — exigem suas contas)
-1. **Publicar o endpoint** (Streamlit Community Cloud ou `ngrok`).
-2. **Inicializar o Git**, fazer commits por etapa e **publicar no GitHub**.
+1. ✅ **Endpoint publicado** no Render — ver [Deploy](#deploy).
+2. ✅ **Repositório publicado** no GitHub.
 3. **Adicionar screenshots** da interação com o agente em `docs/prints/`.
+4. **Antes da avaliação:** abrir a URL uma vez para "aquecer" a app (plano Free hiberna após 15 min).
 
 ---
 
 ## Deploy
 
-**Streamlit Community Cloud (grátis):** suba o repositório ao GitHub, conecte em share.streamlit.io e aponte para `app/main.py`.
+**Publicado no [Render](https://render.com) (plano Free).** 🔗 **https://pos-senai-ia-generativa-avaliacao.onrender.com** — login demo `demo@recrutame.dev` / `demo1234`.
 
-**ngrok (temporário):**
-```bash
-streamlit run app/main.py --server.port 8501
-ngrok http 8501
-```
+O passo a passo completo, as configurações do serviço e a análise de disponibilidade
+do plano gratuito estão em **[docs/deploy_render_streamlit.md](docs/deploy_render_streamlit.md)**.
+Em resumo, no formulário de Web Service:
+
+- **Root Directory:** *(vazio)* · **Instance Type:** `Free` · sem variáveis de ambiente (modo mock)
+- **Build Command:** `pip install -r requirements.txt`
+- **Start Command:** `python -m app.seed && streamlit run app/main.py --server.port $PORT --server.address 0.0.0.0`
+
+> ⚠️ **Disponibilidade (plano Free):** o serviço hiberna após **15 min** de inatividade
+> e acorda em **~1 min** no acesso seguinte. Antes da avaliação, **abra a URL uma vez
+> para "aquecer" a app**. Detalhes em [docs/deploy_render_streamlit.md](docs/deploy_render_streamlit.md#3-disponibilidade-no-plano-free--o-dashboard-fica-ativo-por-quanto-tempo).
 
 ---
 
 ## Documentação complementar
+- [Dicionário de dados — Tabelas do banco (metadados de todas as tabelas, fonte de verdade)](docs/dicionario_dados_tabelas.md)
+- [Dicionário de dados — Currículo estruturado (contrato do `estruturado_json`)](docs/dicionario_dados_curriculo_estruturado.md)
+- [Dicionário de dados — Fluxo IA (dados brutos → artefatos, por tela, com flag `ai_generator`)](docs/dicionario_dados_ia_recrutame.md)
+- [Deploy no Render (Streamlit) — configurações, passo a passo e disponibilidade](docs/deploy_render_streamlit.md)
 - [Análise de mercado e SWOT](docs/analise_mercado_swot_recrutame.md)
 - [Plano de features por complexidade](docs/plano_implementacao_recrutame.md)
 - [Plano técnico completo (Partes 1 e 2)](docs/plano_implementacao_final.md)

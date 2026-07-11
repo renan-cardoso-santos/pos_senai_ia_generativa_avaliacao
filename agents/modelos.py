@@ -17,6 +17,11 @@ from pydantic import BaseModel, Field
 # Limite do resumo do CV estruturado (ver docs/dicionario_dados_curriculo_estruturado.md).
 RESUMO_MAX_PALAVRAS = 1500
 
+# Limite do campo de comentários do card no Kanban (nota livre do usuário sobre a
+# candidatura: como foi a avaliação, gaps percebidos, sentimentos). Referência de
+# UX da aplicação — mantida aqui para UI e validação usarem o mesmo número.
+COMENTARIO_MAX_CARACTERES = 500
+
 _RE_EMAIL = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 
 
@@ -201,6 +206,41 @@ class LacunaPriorizada(BaseModel):
     )
 
 
+class VagaEnriquecida(BaseModel):
+    """Saída de `enriquecer_vaga` — contexto da empresa e da vaga inferido pela IA.
+
+    Campos da **empresa** (obtidos por pesquisa/inferência sobre a organização):
+    `segmento`, `porte`, `glassdoor_score`. Campos da **vaga** (extraídos da
+    descrição): `jornada`, `senioridade`, `stack`, `localizacao`. Enriquecem o
+    card do Kanban e alimentam a flag de incompatibilidade de localização
+    (usuário × vaga). Todos têm default para retrocompatibilidade.
+    """
+
+    segmento: str = Field(default="", description="Segmento/indústria da empresa")
+    porte: str = Field(default="", description="Porte: Startup | Pequena | Média | Grande")
+    glassdoor_score: float = Field(
+        default=0.0, ge=0, le=5, description="Nota estimada no Glassdoor (0–5)"
+    )
+    jornada: str = Field(default="", description="Modelo de trabalho: Remoto | Híbrido | Presencial")
+    senioridade: str = Field(default="", description="Senioridade: Júnior | Pleno | Sênior | ...")
+    stack: list[str] = Field(default_factory=list, description="Tecnologias/stack citadas na vaga")
+    localizacao: str = Field(default="", description="Local de atuação da vaga (Cidade/UF)")
+
+    def tem_dados(self) -> bool:
+        """True se algum campo foi preenchido (evita renderizar bloco vazio na UI)."""
+        return any(
+            [
+                self.segmento.strip(),
+                self.porte.strip(),
+                self.glassdoor_score > 0,
+                self.jornada.strip(),
+                self.senioridade.strip(),
+                self.stack,
+                self.localizacao.strip(),
+            ]
+        )
+
+
 class AnaliseCV(BaseModel):
     """Saída de `analisar_cv_vaga` — relatório-dashboard do match CV × vaga.
 
@@ -231,6 +271,31 @@ class AnaliseCV(BaseModel):
         atendidos = sum(1 for m in self.must_haves if m.atende)
         pct = round(100 * atendidos / total, 1) if total else 0.0
         return atendidos, total, pct
+
+
+class ResumoVaga(BaseModel):
+    """Recorte de uma vaga do histórico — insumo de `gerar_insights_historico`.
+
+    Espelha as colunas de `vagas` relevantes para a leitura do funil (status,
+    score e enriquecimento), sem PII. É o que a tela do Kanban passa à tool para
+    a IA (mock ou real) sintetizar os insights.
+    """
+
+    empresa: str = ""
+    cargo: str = ""
+    status: str = "salva"
+    score: int | None = None
+    segmento: str = ""
+    jornada: str = ""
+    senioridade: str = ""
+    localizacao: str = ""
+    stack: list[str] = Field(default_factory=list)
+
+
+class InsightsHistorico(BaseModel):
+    """Saída de `gerar_insights_historico` — parágrafo curto de leitura do funil."""
+
+    paragrafo: str = ""
 
 
 class SugestaoSecao(BaseModel):

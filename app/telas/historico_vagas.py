@@ -1,10 +1,13 @@
 """Histórico de vagas (Dashboard / Kanban) — visão geral, filtros e status."""
 from __future__ import annotations
 
+import json
 from datetime import date, datetime
 
 import streamlit as st
 
+from agents.ia_service import get_ia_service
+from agents.modelos import COMENTARIO_MAX_CARACTERES
 from app import db, tema, ui
 
 
@@ -29,6 +32,38 @@ def _metricas(vagas: list) -> None:
     c2.metric("Aplicadas", por_status["aplicada"])
     c3.metric("Em entrevista", por_status["entrevista"])
     c4.metric("Ofertas", por_status["oferta"])
+
+
+def _resumo_para_insights(vagas: list) -> list[dict]:
+    """Converte as linhas de `vagas` no recorte que a tool de insights consome."""
+    return [
+        {
+            "empresa": v["empresa"] or "",
+            "cargo": v["cargo"] or "",
+            "status": v["status"] or "salva",
+            "score": v["score_aderencia"],
+            "segmento": v["segmento"] or "",
+            "jornada": v["jornada"] or "",
+            "senioridade": v["senioridade"] or "",
+            "localizacao": v["localizacao"] or "",
+            "stack": json.loads(v["stack_json"] or "[]"),
+        }
+        for v in vagas
+    ]
+
+
+def _insights(vagas: list) -> None:
+    """Botão que gera, via IA, um parágrafo curto de insights do histórico."""
+    c_btn, _ = st.columns([1, 2])
+    with c_btn:
+        if st.button("✨ Gerar insights do histórico", use_container_width=True):
+            with st.spinner("Lendo seu funil de candidaturas…"):
+                resultado = get_ia_service().gerar_insights_historico(
+                    _resumo_para_insights(vagas)
+                )
+            st.session_state.insights_historico = resultado.paragrafo
+    if texto := st.session_state.get("insights_historico"):
+        st.info(f"💡 {texto}")
 
 
 def _barra_filtros(vagas: list) -> dict:
@@ -96,6 +131,7 @@ def render() -> None:
             ui.navegar("Nova análise")
 
     _metricas(vagas)
+    _insights(vagas)
     filtros = _barra_filtros(vagas)
     filtradas = [v for v in vagas if _passa_filtro(v, filtros)]
     st.caption(f"Mostrando {len(filtradas)} de {len(vagas)} vaga(s)")
@@ -177,6 +213,7 @@ def _card(v, modo_selecao: bool = False) -> None:
                 f"Score: <b style='color:{cor}'>{v['score_aderencia']}</b>",
                 unsafe_allow_html=True,
             )
+        _resumo_enriquecimento(v)
         novo = st.selectbox(
             "Mudar status",
             tema.STATUS_FLUXO,
@@ -188,6 +225,43 @@ def _card(v, modo_selecao: bool = False) -> None:
             db.atualizar_status(v["id"], novo)
             st.toast(f"Status atualizado para **{novo}**.", icon="✅")
             st.rerun()
+        _editor_comentarios(v)
         if st.button("Preparar entrevista", key=f"prep_{v['id']}", use_container_width=True):
             st.session_state.vaga_selecionada = v["id"]
             ui.navegar("Preparação de entrevista")
+
+
+def _resumo_enriquecimento(v) -> None:
+    """Linha compacta com o contexto inferido pela IA (jornada/senioridade/Glassdoor)."""
+    partes = []
+    if v["senioridade"]:
+        partes.append(v["senioridade"])
+    if v["jornada"]:
+        partes.append(v["jornada"])
+    if v["localizacao"]:
+        partes.append(f"📍 {v['localizacao']}")
+    if v["glassdoor_score"]:
+        partes.append(f"⭐ {v['glassdoor_score']:.1f}")
+    if partes:
+        st.caption(" · ".join(partes))
+
+
+def _editor_comentarios(v) -> None:
+    """Campo de comentários do card (avaliação, gaps, sentimentos) com limite de caracteres."""
+    atual = v["comentarios"] or ""
+    rotulo = "📝 Comentários" + (" ●" if atual.strip() else "")
+    with st.expander(rotulo, expanded=False):
+        texto = st.text_area(
+            "Suas anotações sobre a candidatura",
+            value=atual,
+            key=f"coment_{v['id']}",
+            height=120,
+            max_chars=COMENTARIO_MAX_CARACTERES,
+            placeholder="Como foi a avaliação? Quais gaps percebeu? Sentimentos sobre a vaga…",
+            help=f"Máximo de {COMENTARIO_MAX_CARACTERES} caracteres.",
+        )
+        st.caption(f"{len(texto)}/{COMENTARIO_MAX_CARACTERES} caracteres")
+        if st.button("💾 Salvar comentários", key=f"save_coment_{v['id']}", use_container_width=True):
+            db.atualizar_comentarios(v["id"], texto.strip())
+            st.toast("Comentários salvos.", icon="💾")
+            st.rerun()

@@ -22,11 +22,13 @@ from typing import Any
 from agents.modelos import (
     AnaliseCV,
     CurriculoEstruturado,
+    InsightsHistorico,
     PacoteEntrevista,
     ProjetoRecomendado,
     RespostaEntrevista,
     SugestaoSecao,
     TextoGerado,
+    VagaEnriquecida,
 )
 from tools import definicoes as tools
 
@@ -39,6 +41,14 @@ class IAService(ABC):
 
     @abstractmethod
     def analisar_cv_vaga(self, cv_texto: str, vaga_texto: str) -> AnaliseCV: ...
+
+    @abstractmethod
+    def enriquecer_vaga(
+        self, empresa: str, cargo: str, vaga_texto: str, link: str = ""
+    ) -> VagaEnriquecida: ...
+
+    @abstractmethod
+    def gerar_insights_historico(self, vagas: list[Any]) -> InsightsHistorico: ...
 
     @abstractmethod
     def sugerir_melhorias(self, cv_texto: str, lacunas: list[str]) -> list[SugestaoSecao]: ...
@@ -83,6 +93,16 @@ class MockIAService(IAService):
 
     def analisar_cv_vaga(self, cv_texto: str, vaga_texto: str) -> AnaliseCV:
         return tools.executar("analisar_cv_vaga", cv_texto=cv_texto, vaga_texto=vaga_texto)
+
+    def enriquecer_vaga(
+        self, empresa: str, cargo: str, vaga_texto: str, link: str = ""
+    ) -> VagaEnriquecida:
+        return tools.executar(
+            "enriquecer_vaga", empresa=empresa, cargo=cargo, vaga_texto=vaga_texto, link=link
+        )
+
+    def gerar_insights_historico(self, vagas: list[Any]) -> InsightsHistorico:
+        return tools.executar("gerar_insights_historico", vagas=vagas)
 
     def sugerir_melhorias(self, cv_texto: str, lacunas: list[str]) -> list[SugestaoSecao]:
         return tools.executar("sugerir_melhorias_cv", cv_texto=cv_texto, lacunas=lacunas)

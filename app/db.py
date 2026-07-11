@@ -78,7 +78,18 @@ def criar_tabelas() -> None:
                 status          TEXT DEFAULT 'salva',
                 score_aderencia INTEGER,
                 data_aplicacao  TEXT,
-                atualizado_em   TEXT NOT NULL
+                atualizado_em   TEXT NOT NULL,
+                arquivada       INTEGER NOT NULL DEFAULT 0,
+                -- Enriquecimento da IA (tool enriquecer_vaga): contexto empresa/vaga.
+                segmento        TEXT,
+                porte           TEXT,
+                glassdoor_score REAL,
+                jornada         TEXT,
+                senioridade     TEXT,
+                stack_json      TEXT,
+                localizacao     TEXT,
+                -- Nota livre do usuário sobre a candidatura (avaliação, gaps, sentimentos).
+                comentarios     TEXT
             );
 
             CREATE TABLE IF NOT EXISTS analises (
@@ -131,6 +142,19 @@ def _migrar(conn: sqlite3.Connection) -> None:
     cols_vagas = {r["name"] for r in conn.execute("PRAGMA table_info(vagas)")}
     if "arquivada" not in cols_vagas:
         conn.execute("ALTER TABLE vagas ADD COLUMN arquivada INTEGER NOT NULL DEFAULT 0")
+    # Enriquecimento da IA + comentários do usuário (colunas aditivas).
+    for coluna, tipo in (
+        ("segmento", "TEXT"),
+        ("porte", "TEXT"),
+        ("glassdoor_score", "REAL"),
+        ("jornada", "TEXT"),
+        ("senioridade", "TEXT"),
+        ("stack_json", "TEXT"),
+        ("localizacao", "TEXT"),
+        ("comentarios", "TEXT"),
+    ):
+        if coluna not in cols_vagas:
+            conn.execute(f"ALTER TABLE vagas ADD COLUMN {coluna} {tipo}")
 
     cols_portfolio = {r["name"] for r in conn.execute("PRAGMA table_info(portfolio_star)")}
     if "link_repo" not in cols_portfolio:
@@ -414,6 +438,61 @@ def atualizar_score(vaga_id: int, score: int) -> None:
         conn.execute(
             "UPDATE vagas SET score_aderencia = ?, atualizado_em = ? WHERE id = ?",
             (score, _agora(), vaga_id),
+        )
+
+
+def atualizar_enriquecimento(vaga_id: int, enriquecimento: dict[str, Any]) -> None:
+    """Grava o enriquecimento da IA (dict de `VagaEnriquecida`) nas colunas da vaga.
+
+    `stack` (lista) é serializada como JSON em `stack_json`; os demais campos vão
+    para colunas homônimas. Campos ausentes preservam o valor anterior via
+    COALESCE não — aqui sobrescrevemos com o que a IA retornou (reanálise
+    atualiza o contexto).
+    """
+    with conectar() as conn:
+        conn.execute(
+            "UPDATE vagas SET segmento = ?, porte = ?, glassdoor_score = ?, "
+            "jornada = ?, senioridade = ?, stack_json = ?, localizacao = ?, "
+            "atualizado_em = ? WHERE id = ?",
+            (
+                enriquecimento.get("segmento") or None,
+                enriquecimento.get("porte") or None,
+                enriquecimento.get("glassdoor_score") or None,
+                enriquecimento.get("jornada") or None,
+                enriquecimento.get("senioridade") or None,
+                json.dumps(enriquecimento.get("stack", []), ensure_ascii=False),
+                enriquecimento.get("localizacao") or None,
+                _agora(),
+                vaga_id,
+            ),
+        )
+
+
+def enriquecimento_da_vaga(vaga_id: int) -> dict[str, Any] | None:
+    """Enriquecimento salvo da vaga, pronto para `VagaEnriquecida.model_validate`.
+
+    `None` se a vaga não existe. `stack_json` é desserializado de volta para lista.
+    """
+    row = buscar_vaga(vaga_id)
+    if not row:
+        return None
+    return {
+        "segmento": row["segmento"] or "",
+        "porte": row["porte"] or "",
+        "glassdoor_score": row["glassdoor_score"] or 0.0,
+        "jornada": row["jornada"] or "",
+        "senioridade": row["senioridade"] or "",
+        "stack": json.loads(row["stack_json"] or "[]"),
+        "localizacao": row["localizacao"] or "",
+    }
+
+
+def atualizar_comentarios(vaga_id: int, comentarios: str) -> None:
+    """Salva a nota livre do usuário sobre a candidatura (card do Kanban)."""
+    with conectar() as conn:
+        conn.execute(
+            "UPDATE vagas SET comentarios = ?, atualizado_em = ? WHERE id = ?",
+            (comentarios, _agora(), vaga_id),
         )
 
 
