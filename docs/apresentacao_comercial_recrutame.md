@@ -4,7 +4,7 @@
 
 # RecrutaMe.AI — Apresentação Comercial
 
-> **One-liner.** Copiloto de candidatura com IA para o mercado **PT-BR**: transforma cada vaga salva em um pacote completo — CV adaptado, análise de aderência, portfólio STAR, preparação de entrevista e gestão do funil — **sem inventar números**.
+> **One-liner.** Copiloto de candidatura com IA para o mercado **PT-BR**: transforma cada vaga salva em um pacote completo — CV adaptado, análise de aderência, portfólio STAR, preparação de entrevista e gestão do funil — **num só lugar**.
 
 Documento comercial de posicionamento. Complementa a [Análise de Mercado e SWOT](analise_mercado_swot_recrutame.md) e o [README](../README.md) técnico.
 
@@ -16,7 +16,7 @@ Candidatos — especialmente em **transição para áreas técnicas** — enfren
 
 - **Retrabalho por vaga:** adaptar CV, escrever carta e preparar entrevista do zero, uma vaga por vez.
 - **Ferramentas fragmentadas:** um app para ATS, outro para tracker, outro para entrevista — nada conversa.
-- **IA que inventa:** geradores atuais criam métricas que o candidato **não consegue sustentar** numa entrevista.
+- **Portfólio disperso:** na hora da entrevista, não se sabe **quais projetos** citar para aquela vaga específica.
 - **Decisão às cegas:** sem contexto da empresa (porte, reputação, localização), aplica-se para vagas que nunca fariam sentido.
 
 **Custo para o candidato:** horas por candidatura, baixa taxa de resposta e entrevistas mal preparadas.
@@ -45,7 +45,7 @@ Um **fluxo unificado**, do currículo à oferta, em um só lugar:
 Contra Teal, Jobscan, Huntr, Rezi e afins (ver [tabela competitiva](analise_mercado_swot_recrutame.md#2-análise-competitiva)), três diferenciais sustentam a proposta:
 
 1. 🎯 **Portfólio STAR pessoal** — recomenda *quais dos seus projetos reais* citar por vaga. **Ninguém no mercado faz bem.**
-2. 🛡️ **Grounding anti-alucinação** — usa só CV e portfólio reais; não inventa métricas. Ataca a dor #1 dos geradores atuais.
+2. 🔗 **Fluxo unificado do funil** — do CV à oferta num só lugar: análise, contexto da vaga, insights do funil e pacote de entrevista. Onde as ferramentas atuais vivem fragmentadas.
 3. 🇧🇷 **Foco PT-BR + candidato técnico** — nicho pouco atendido por ferramentas em inglês voltadas aos EUA.
 
 ---
@@ -94,11 +94,10 @@ Instrumentação proposta para provar valor ao longo do tempo. Organizada pelo *
 
 ### 4.3 KPIs de qualidade da IA (guardrails)
 
-Críticos para a promessa **anti-alucinação** — protegem a marca:
+Críticos para a **qualidade e confiabilidade da IA** — protegem a marca:
 
 | KPI | Por que importa | Alvo |
 |---|---|---|
-| Taxa de "número inventado" reportada | Viola o diferencial central | → 0% |
 | Latência média por tool (Parte 2) | UX e custo | < 4 s |
 | **Custo de LLM por candidatura** | Sustentabilidade unit-economics | monitorar $/candidatura vs. ARPU |
 | Taxa de resposta malformada (falha Pydantic) | Robustez do contrato IA↔UI | < 0,5% |
@@ -119,7 +118,7 @@ Avaliação do documento [analise_mercado_swot_recrutame.md](analise_mercado_swo
 
 | Eixo SWOT | Implicação comercial | Movimento recomendado |
 |---|---|---|
-| **Força:** STAR + grounding | É o *wedge* — o motivo de escolher você, não o Teal | Colocar no centro de todo material de marketing |
+| **Força:** STAR + fluxo unificado | É o *wedge* — o motivo de escolher você, não o Teal | Colocar no centro de todo material de marketing |
 | **Força:** foco PT-BR | Beachhead de baixa concorrência | Dominar o nicho técnico BR antes de ampliar |
 | **Fraqueza:** custo de LLM | Ameaça direta à margem | KPI **custo/candidatura**; usar modelos menores nas tools simples |
 | **Fraqueza:** Streamlit escala mal | Teto de crescimento | OK para validar; planejar migração se houver tração |
@@ -127,9 +126,9 @@ Avaliação do documento [analise_mercado_swot_recrutame.md](analise_mercado_swo
 | **Ameaça:** comoditização por LLM genérico | ChatGPT faz carta grátis | Defender no que o genérico **não** faz: portfólio pessoal + contexto do funil |
 | **Oportunidade:** trend de plataforma unificada | Valida a tese | Comunicar "pacote de candidatura", não "gerador de CV" |
 
-**Ajuste de coerência (achado da avaliação de features):** a nota **Glassdoor** hoje é estimada por heurística. Como o produto se vende como *"não inventa números"*, exibir uma nota fictícia como fato **arranha a marca**. Recomendação comercial: rotular como *"estimativa"* na UI ou só exibir com fonte verificável na Parte 2.
+**Ajuste de coerência (achado da avaliação de features):** a nota **Glassdoor** hoje é estimada por heurística. Como o produto preza por **dados confiáveis**, exibir uma nota fictícia como fato **arranha a marca**. Recomendação comercial: rotular como *"estimativa"* na UI ou só exibir com fonte verificável na Parte 2.
 
-**Veredito comercial (alinhado ao SWOT):** competir de frente com players capitalizados é difícil; **vencer no nicho** (candidato técnico BR + portfólio STAR + confiança) é viável e defensável.
+**Veredito comercial (alinhado ao SWOT):** competir de frente com players capitalizados é difícil; **vencer no nicho** (candidato técnico BR + portfólio STAR + fluxo unificado) é viável e defensável.
 
 ---
 
@@ -158,4 +157,4 @@ Avaliação do documento [analise_mercado_swot_recrutame.md](analise_mercado_swo
 
 ## 8. Resumo executivo (elevator pitch)
 
-> O **RecrutaMe.AI** é o copiloto que leva o candidato técnico brasileiro **do currículo à oferta**. Onde as ferramentas atuais inventam métricas e vivem fragmentadas, nós unificamos o funil e nos ancoramos no que o candidato **realmente tem** — seu portfólio de projetos STAR — recomendando o que citar em cada vaga, sem alucinação. Nicho claro (técnicos, PT-BR), diferencial defensável (STAR + grounding) e arquitetura pronta para trocar o mock pelo LLM real sem reescrever a interface.
+> O **RecrutaMe.AI** é o copiloto que leva o candidato técnico brasileiro **do currículo à oferta**. Onde as ferramentas atuais vivem fragmentadas, nós unificamos o funil e nos ancoramos no que o candidato **realmente tem** — seu portfólio de projetos STAR — recomendando o que citar em cada vaga. Nicho claro (técnicos, PT-BR), diferencial defensável (portfólio STAR + fluxo unificado) e arquitetura pronta para trocar o mock pelo LLM real sem reescrever a interface.

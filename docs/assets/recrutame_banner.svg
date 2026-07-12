@@ -48,7 +48,7 @@
     <text class="title" x="0" y="72" font-size="82" fill="#583101">RecrutaMe<tspan fill="#8b5e34">.AI</tspan></text>
 
     <text class="body" x="2" y="122" font-size="27" fill="#6f4518">Do currículo à oferta: seu copiloto de candidatura com IA.</text>
-    <text class="light" x="2" y="156" font-size="19" fill="#8b5e34">Análise real, portfólio STAR e grounding anti-alucinação — sem inventar números.</text>
+    <text class="light" x="2" y="156" font-size="19" fill="#8b5e34">Análise real, portfólio STAR e pacote de entrevista — tudo num só lugar.</text>
 
     <!-- chips de features -->
     <g transform="translate(0,196)" class="body" font-size="17">

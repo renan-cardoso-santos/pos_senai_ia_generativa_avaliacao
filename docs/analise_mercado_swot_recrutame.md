@@ -37,7 +37,7 @@ Existe um mercado ativo e **em consolidação** para serviços de IA voltados a 
 ## 3. Diferenciais do RecrutaMe.AI
 
 1. **Recomendação de projetos STAR do portfólio pessoal** — o sistema mantém um banco dos seus projetos (Situação–Tarefa–Ação–Resultado) e recomenda **quais citar** para aquela vaga. Diferencial mais forte e pouco atendido pelos concorrentes.
-2. **Grounding anti-alucinação** — regra de "não inventar números"; usa apenas o CV e o portfólio reais. Ataca uma dor conhecida das ferramentas atuais (geradores que inventam métricas).
+2. **Contexto da vaga + insights do funil** — enriquece cada vaga (segmento, porte, senioridade, stack, flag de localização) e lê o funil de forma agregada, orientando *onde* vale investir esforço.
 3. **Fluxo unificado e focado** — análise → sugestões → carta/pitch/respostas → histórico de vagas, num só lugar.
 4. **Foco no mercado PT-BR** — a maioria das ferramentas é em inglês e voltada ao mercado dos EUA.
 5. **Arquitetura desacoplada** — serviço de IA isolado (mock↔real; UI trocável), o que facilita evoluir e defender tecnicamente.
@@ -48,7 +48,7 @@ Existe um mercado ativo e **em consolidação** para serviços de IA voltados a 
 
 ### Forças (internas, positivas)
 - Diferencial único: **recomendação de projetos STAR** do portfólio.
-- **Grounding** em dados reais (confiança; sem inventar métricas).
+- **Contexto da vaga + insights do funil** (decisão informada sobre onde aplicar).
 - Fluxo unificado (análise + carta + pitch + respostas + tracker).
 - Foco **PT-BR** e em candidatos técnicos (devs/engenheiros).
 - Arquitetura limpa e desacoplada (fácil de evoluir; explica bem na banca).
@@ -64,7 +64,7 @@ Existe um mercado ativo e **em consolidação** para serviços de IA voltados a 
 
 ### Oportunidades (externas, positivas)
 - Mercado **PT-BR** pouco atendido.
-- Dor real de "IA inventa números" → posicionamento de **confiança/grounding**.
+- Candidatos com **portfólio disperso** → posicionamento de organização e recomendação de projetos STAR.
 - Trend de **plataformas unificadas** valida a proposta.
 - Nicho de **candidatos técnicos** que precisam organizar portfólio STAR.
 - Expansões futuras: LinkedIn, extensão de navegador, **modelos locais** para privacidade.
@@ -78,16 +78,16 @@ Existe um mercado ativo e **em consolidação** para serviços de IA voltados a 
 
 | | Ajuda | Atrapalha |
 |---|---|---|
-| **Interno** | Forças: STAR, grounding, fluxo unificado, PT-BR, arquitetura | Fraquezas: sem marca, escala do Streamlit, custo de LLM, sem integrações |
-| **Externo** | Oportunidades: nicho PT-BR, confiança, trend unificado, técnicos | Ameaças: Teal/Huntr, comoditização por LLMs genéricos, custo de API |
+| **Interno** | Forças: STAR, contexto da vaga, fluxo unificado, PT-BR, arquitetura | Fraquezas: sem marca, escala do Streamlit, custo de LLM, sem integrações |
+| **Externo** | Oportunidades: nicho PT-BR, portfólio STAR, trend unificado, técnicos | Ameaças: Teal/Huntr, comoditização por LLMs genéricos, custo de API |
 
 ---
 
 ## 5. Veredito
 
-Como **produto comercial**, competir de frente com Teal e Huntr seria difícil: eles têm anos de vantagem, marca e já seguem o modelo unificado. Como **projeto acadêmico e ferramenta pessoal**, porém, o RecrutaMe.AI é **excelente e bem posicionado**: o problema é real, o mercado prova a demanda, e há diferenciais concretos — recomendação de projetos STAR, grounding anti-alucinação e foco PT-BR — que sustentam uma apresentação forte, citando os concorrentes e mostrando exatamente onde a plataforma agrega valor.
+Como **produto comercial**, competir de frente com Teal e Huntr seria difícil: eles têm anos de vantagem, marca e já seguem o modelo unificado. Como **projeto acadêmico e ferramenta pessoal**, porém, o RecrutaMe.AI é **excelente e bem posicionado**: o problema é real, o mercado prova a demanda, e há diferenciais concretos — recomendação de projetos STAR, fluxo unificado e foco PT-BR — que sustentam uma apresentação forte, citando os concorrentes e mostrando exatamente onde a plataforma agrega valor.
 
-**Recomendação estratégica:** focar o valor no que os grandes não fazem bem — o **portfólio STAR + grounding** — e mirar o **nicho de candidatos técnicos no Brasil**, em vez de tentar ser "mais um" tudo-em-um genérico.
+**Recomendação estratégica:** focar o valor no que os grandes não fazem bem — o **portfólio STAR + fluxo unificado** — e mirar o **nicho de candidatos técnicos no Brasil**, em vez de tentar ser "mais um" tudo-em-um genérico.
 
 ---
 

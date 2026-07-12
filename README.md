@@ -15,7 +15,7 @@ Plataforma **unificada de candidatura**: análise de currículo × vaga, sugest�
 
 ## 1. O problema e a solução
 
-**Problema.** Candidatos — especialmente em transição para áreas técnicas — perdem tempo adaptando currículo para cada vaga, escrevendo cartas do zero e preparando entrevistas sem saber *quais dos seus projetos citar*. As ferramentas existentes são fragmentadas e, quando geram texto, **inventam métricas** que o candidato não tem como sustentar.
+**Problema.** Candidatos — especialmente em transição para áreas técnicas — perdem tempo adaptando currículo para cada vaga, escrevendo cartas do zero e preparando entrevistas sem saber *quais dos seus projetos citar*. As ferramentas existentes são fragmentadas e raramente ajudam a decidir **quais projetos do portfólio** citar em cada vaga.
 
 **Solução.** Um **fluxo unificado**, do currículo à oferta, em um só lugar:
 
@@ -28,7 +28,7 @@ Plataforma **unificada de candidatura**: análise de currículo × vaga, sugest�
 | **Preparar** | Pacote de entrevista | Carta, pitch e respostas comuns, exportáveis |
 | **Gerir** | Kanban + Insights do funil | Status, comentários por vaga e leitura agregada da busca |
 
-**Diferenciais** (ver [análise de mercado e SWOT](docs/analise_mercado_swot_recrutame.md)): recomendação de **projetos STAR do portfólio pessoal** (pouco atendida por Teal, Huntr, Jobscan) e **grounding anti-alucinação** (regra de "não inventar números").
+**Diferenciais** (ver [análise de mercado e SWOT](docs/analise_mercado_swot_recrutame.md)): recomendação de **projetos STAR do portfólio pessoal** (pouco atendida por Teal, Huntr, Jobscan) e **fluxo unificado do currículo à oferta** — com contexto da vaga e insights do funil num só lugar.
 
 ### Como a IA será integrada (Parte 2)
 
