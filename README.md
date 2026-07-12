@@ -9,7 +9,7 @@ Plataforma **unificada de candidatura**: análise de currículo × vaga, sugest�
 > **Entrega — Avaliação Intermediária (30%).** Toda a interface está funcional em Streamlit com a **IA simulada (mock)**: nenhum LLM é chamado. Onde a IA atuará, um `MockIAService` devolve respostas fixas e realistas com o **mesmo formato** do serviço real. Na Avaliação Final (70%), o mock é trocado pelo LLM da Anthropic **sem alterar nenhuma tela**.
 
 - 🔗 **Testar a aplicação (endpoint público):** **https://pos-senai-ia-generativa-avaliacao.onrender.com** — hospedado no Render (plano Free). Login demo: `demo@recrutame.dev` / `demo1234`. O primeiro acesso pode levar até ~1 min (a hospedagem gratuita hiberna quando ociosa — ver [Deploy](#deploy)).
-- 💻 **Repositório:** [github.com/pos_senai_ia_generativa_avaliacao](#https://github.com/renan-cardoso-santos/pos_senai_ia_generativa_avaliacao)
+- 💻 **Repositório:** [github.com/renan-cardoso-santos/pos_senai_ia_generativa_avaliacao](https://github.com/renan-cardoso-santos/pos_senai_ia_generativa_avaliacao)
 
 ---
 

@@ -1,0 +1,21 @@
+# Render Blueprint — infraestrutura do RecrutaMe versionada no repositório.
+# Doc: https://render.com/docs/blueprint-spec
+#
+# Com este arquivo, o deploy deixa de depender de configuração manual no painel:
+# branch, comandos de build/start e AUTO-DEPLOY ficam versionados aqui. Todo push
+# no `main` passa a redeployar sozinho (autoDeploy: true).
+services:
+  - type: web
+    name: pos_senai_ia_generativa_avaliacao
+    runtime: python
+    plan: free
+    branch: main
+    autoDeploy: true
+    # Instala as dependências (uv não é necessário no Render — pip basta).
+    buildCommand: pip install -r requirements.txt
+    # Popula o banco de demonstração e sobe o Streamlit na porta que o Render injeta.
+    startCommand: python -m app.seed && streamlit run app/main.py --server.port $PORT --server.address 0.0.0.0
+    envVars:
+      # Fixa a versão do Python (espelha o .python-version do projeto).
+      - key: PYTHON_VERSION
+        value: "3.11"

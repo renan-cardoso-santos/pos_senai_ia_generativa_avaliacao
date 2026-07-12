@@ -130,12 +130,78 @@ Regras do plano Free (fonte: [render.com/docs/free](https://render.com/docs/free
 
 ---
 
-## 4. Resumo
+## 4. Manter o deploy sempre na última versão (Auto-Deploy e `render.yaml`)
+
+### O problema observado
+
+Durante os testes, a app publicada ficou **presa num commit antigo**: a aba
+**Events** do serviço mostrava `Deploy live for 99ffc18`, enquanto o `main` no
+GitHub já estava em `c268b46` (com features novas — insights do histórico,
+enriquecimento da vaga e comentários por card). Resultado: a URL pública **não
+refletia** o código mais recente.
+
+**Causa raiz:** o serviço foi criado manualmente pelo painel e o **Auto-Deploy
+não estava ativo**. Sem ele, um `git push` para o `main` **não** dispara um novo
+build — o Render continua servindo o último deploy realizado.
+
+### Correção imediata (subir o código atual)
+
+No serviço, botão **"Manual Deploy"** → escolher a opção certa:
+
+| Opção | Resolve? | O que faz |
+|---|:--:|---|
+| **Deploy latest commit** | ✅ **sim** | Puxa o `HEAD` atual do `main` (o commit mais novo) e faz o build. |
+| **Deploy a specific commit** | ✅ | Igual, mas você informa o SHA (ex.: colar `c268b46`). |
+| **Clear build cache & deploy** | ✅ plano B | Também pega o commit mais novo, descartando o cache. Use se o "latest" concluir e ainda não refletir. |
+| **Restart service** | ❌ **não** | Só reinicia o container com o **build antigo** — não puxa código novo. |
+
+Após concluir, dar **`Ctrl+Shift+R`** na app. Confirmar na aba **Events** que o
+topo virou `Deploy live for <sha-novo>`.
+
+### Correção definitiva (não repetir o esquecimento)
+
+Ativar o auto-deploy: **Settings → Build & Deploy → Auto-Deploy → "On Commit"**.
+A partir daí, **todo push no `main` redeploya sozinho**.
+
+### `render.yaml` — infraestrutura versionada (boas práticas)
+
+O repositório inclui um [`render.yaml`](../render.yaml) (**Render Blueprint**):
+um arquivo que descreve o serviço em código — `branch`, `buildCommand`,
+`startCommand`, `plan`, versão do Python e, principalmente, `autoDeploy: true`.
+
+**Utilidade / por que é boa prática:**
+
+- **Config versionada (IaC):** a configuração deixa de viver só no painel (onde é
+  fácil esquecer de ligar o auto-deploy) e passa a morar no Git, revisável em PR.
+- **À prova de esquecimento:** `autoDeploy: true` garante que a última versão
+  sempre vá para produção — foi exatamente a falha vista acima.
+- **Reprodutível:** recriar o serviço (ou clonar o projeto) reaplica a mesma
+  config sem preencher formulário manualmente.
+- **Fonte de verdade única:** os comandos de build/start ficam documentados junto
+  do código, alinhados com a seção 1 deste documento.
+
+**Como aplicá-lo (atenção à pegadinha do serviço existente):** um Blueprint **não
+adota automaticamente** um serviço criado à mão. Dois caminhos:
+
+- **A (recomendado agora):** manter o serviço atual e apenas ligar o **Auto-Deploy
+  no painel** (Settings). O `render.yaml` fica como documentação/fonte de verdade,
+  **sem trocar a URL** pública.
+- **B (gerência por Blueprint):** Render → **New → Blueprint** apontando para o
+  repo. Como o `name` no arquivo é igual ao do serviço, o Render tende a vinculá-lo
+  — mas **confirme na prévia** que ele vai *atualizar o serviço existente*, e não
+  criar um novo (o que geraria uma **URL nova**).
+
+---
+
+## 5. Resumo
 
 - Deploy de Streamlit no Render exige **Root Directory vazio** e **Start Command
   com `streamlit run ... --server.port $PORT --server.address 0.0.0.0`** (não
   `gunicorn`).
 - Modo mock → **sem variáveis de ambiente / sem API key**.
+- **Manter na última versão:** ligar **Auto-Deploy ("On Commit")**; sem ele, o
+  push não redeploya. Correção pontual: **Manual Deploy → "Deploy latest commit"**
+  (nunca "Restart service"). Config versionada em [`render.yaml`](../render.yaml).
 - Plano Free **hiberna após 15 min** de inatividade e acorda em **~1 min**;
   há **750 h/mês** por workspace. Para a avaliação, **aquecer a app antes** e
   **avisar o professor** sobre o cold start resolve.
