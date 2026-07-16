@@ -30,15 +30,15 @@ def test_enriquecer_vaga_exemplo_curado():
 
     enr: VagaEnriquecida = tools.executar(
         "enriquecer_vaga",
-        empresa="FIESC",
-        cargo="Analista",
+        empresa="SENAI-SC",
+        cargo="Bolsista IA/Geointeligência/New Space",
         vaga_texto=exemplos.vaga_exemplo()["descricao"],
         link="",
     )
     assert enr.jornada == "Presencial"
-    assert enr.senioridade == "Pleno"
+    assert enr.senioridade == "Sênior"
     assert enr.localizacao == "Florianópolis/SC"
-    assert "LLM" in enr.stack
+    assert "RAG" in enr.stack
     assert 0 < enr.glassdoor_score <= 5
     assert enr.tem_dados()
 

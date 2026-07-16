@@ -205,12 +205,13 @@ class EntradaInsightsHistorico(BaseModel):
 # ---------------------------------------------------------------------------
 # Tools — uma por feature
 # ---------------------------------------------------------------------------
-# Assinatura estável da vaga de exemplo (nº do processo em `exemplos.vaga_exemplo`).
-# Como a vaga real (FIESC/SENAI) é dominada por texto de processo seletivo e o
-# perfil de exemplo (Cientista de Dados) tem baixa sobreposição literal, um match
-# genérico por keyword daria ~0%. Para a demo do exemplo já carregado ficar
-# coerente com as imagens de referência, devolvemos um relatório curado.
-_ASSINATURA_VAGA_EXEMPLO = "01747/2026"
+# Assinatura estável da vaga de exemplo (trecho único do rodapé em
+# `exemplos.vaga_exemplo` — a vaga SENAI-SC de IA/Geointeligência/New Space).
+# Como a vaga é dominada por stack de engenharia de IA sênior e o perfil de
+# exemplo (Cientista de Dados) tem sobreposição parcial, um match genérico por
+# keyword ficaria instável. Para a demo do exemplo já carregado ficar coerente
+# com as imagens de referência, devolvemos um relatório curado.
+_ASSINATURA_VAGA_EXEMPLO = "Growth & Digital Strategy"
 
 
 @tool(
@@ -324,78 +325,84 @@ def analisar_cv_vaga(cv_texto: str, vaga_texto: str) -> AnaliseCV:
 
 
 def _analise_exemplo() -> AnaliseCV:
-    """Relatório curado do match entre a vaga de exemplo (FIESC/SENAI — Analista
-    de Pesquisa, Desenvolvimento e Inovação) e o perfil de exemplo (Cientista de
-    Dados). Evidências e gaps são coerentes com `exemplos.cv_exemplo()`.
+    """Relatório curado do match entre a vaga de exemplo (SENAI-SC — Engenharia de
+    IA sênior: agentes autônomos, LLMs, RAG, AWS) e o perfil de exemplo (Cientista
+    de Dados). Evidências e gaps são coerentes com `exemplos.cv_exemplo()`.
     """
     must_haves = [
-        MustHaveItem(requisito="Formação superior completa", atende=True,
-                     evidencia="Bacharelado em Estatística — USP"),
-        MustHaveItem(requisito="Experiência com IA / Machine Learning", atende=True,
-                     evidencia="Cientista de Dados Sênior — modelos preditivos com scikit-learn"),
         MustHaveItem(requisito="Python", atende=True,
                      evidencia="Skills: Python, Pandas, scikit-learn"),
+        MustHaveItem(requisito="Machine Learning", atende=True,
+                     evidencia="Cientista de Dados Sênior — modelos de ML em produção"),
         MustHaveItem(requisito="Manipulação de dados (SQL)", atende=True,
-                     evidencia="Skills: SQL; análise e tratamento de dados"),
-        MustHaveItem(requisito="Inglês para documentação técnica", atende=True,
-                     evidencia="Idiomas: Inglês"),
-        MustHaveItem(requisito="Deploy de soluções em nuvem (cloud)", atende=False),
-        MustHaveItem(requisito="IA Generativa / LLM", atende=False),
-        MustHaveItem(requisito="Domínio em Sistemas Embarcados", atende=False),
-        MustHaveItem(requisito="CNH categoria B", atende=False),
+                     evidencia="Skills: SQL; automação de pipelines de ETL"),
+        MustHaveItem(requisito="Versionamento (GitHub / Git)", atende=True,
+                     evidencia="Skills: Git"),
+        MustHaveItem(requisito="Frameworks de agentes autônomos (ex.: Agno)", atende=False),
+        MustHaveItem(requisito="LLMs / integração de LLMs em produção", atende=False),
+        MustHaveItem(requisito="RAG e bancos vetoriais (ChromaDB, FAISS)", atende=False),
+        MustHaveItem(requisito="Ferramentas da AWS (S3, Lambda, SQS, Textract, EventBridge)", atende=False),
+        MustHaveItem(requisito="Docker", atende=False),
     ]
     gaps = [
         LacunaPriorizada(
-            titulo="IA Generativa / LLM",
-            descricao="O CV não evidencia experiência com LLMs/IA Generativa, "
-                      "diferencial central do Instituto de Inovação.",
+            titulo="Agentes autônomos e LLMs",
+            descricao="O CV não evidencia frameworks de agentes (Agno) nem integração de "
+                      "LLMs em produção, o núcleo da vaga.",
             prioridade="ALTA",
-            recomendacao="Fazer um curso aplicado de LLMs e publicar uma PoC de RAG/agente "
-                         "para trazer os termos 'IA Generativa' e 'LLM' ao CV com evidência real.",
+            recomendacao="Fazer um curso aplicado de LLMs/agentes e publicar uma PoC de agente "
+                         "com ferramentas para trazer os termos 'LLM' e 'agentes autônomos' ao CV.",
             cursos_certificacoes=[
                 "Generative AI with Large Language Models (DeepLearning.AI / AWS — Coursera)",
-                "LangChain for LLM Application Development (DeepLearning.AI)",
+                "Functions, Tools and Agents with LangChain (DeepLearning.AI)",
+            ],
+            projetos_portfolio=[
+                "Agente conversacional com memória e uso de ferramentas (LangChain/Agno), no GitHub.",
+            ],
+        ),
+        LacunaPriorizada(
+            titulo="RAG e bancos vetoriais",
+            descricao="Não há evidência de RAG nem de bancos vetoriais (ChromaDB/FAISS), "
+                      "pedidos como requisito para busca semântica.",
+            prioridade="ALTA",
+            recomendacao="Construir um assistente RAG sobre documentos e descrever a stack "
+                         "(embeddings + banco vetorial) numa experiência ou projeto do CV.",
+            cursos_certificacoes=[
+                "Building and Evaluating Advanced RAG (DeepLearning.AI)",
+                "Vector Databases: from Embeddings to Applications (DeepLearning.AI)",
             ],
             projetos_portfolio=[
                 "Assistente RAG sobre documentos técnicos (LangChain + FAISS), publicado no GitHub.",
             ],
         ),
         LacunaPriorizada(
-            titulo="Domínio em Sistemas Embarcados",
-            descricao="Perfil atuou em dados/varejo; não há evidência de sistemas "
-                      "embarcados, o domínio da vaga.",
-            prioridade="ALTA",
-            recomendacao="Aproximar-se do domínio com um projeto de IA na borda (edge), "
-                         "conectando Ciência de Dados a hardware embarcado.",
-            cursos_certificacoes=[
-                "Introduction to Embedded Machine Learning (Edge Impulse — Coursera)",
-                "NVIDIA DLI: Getting Started with AI on Jetson Nano",
-            ],
-            projetos_portfolio=[
-                "Classificador de imagens rodando em Raspberry Pi/Jetson (TensorFlow Lite), com demo.",
-            ],
-        ),
-        LacunaPriorizada(
-            titulo="Deploy em nuvem (cloud)",
-            descricao="Há certificação AWS ML, mas o CV não evidencia deploy de "
-                      "modelos em produção na nuvem.",
+            titulo="Ferramentas da AWS (S3, Lambda, SQS, Textract)",
+            descricao="Há certificação AWS ML, mas o CV não evidencia uso dos serviços "
+                      "citados (S3, Lambda, SQS, Textract, EventBridge).",
             prioridade="MÉDIA",
-            recomendacao="Publicar um modelo como API em nuvem e descrever a stack de deploy "
-                         "(container + endpoint) numa experiência ou projeto do CV.",
+            recomendacao="Servir um modelo/pipeline usando serviços AWS e citar explicitamente "
+                         "os serviços empregados numa experiência ou projeto do CV.",
             cursos_certificacoes=[
                 "AWS Skill Builder: Deploying ML Models",
                 "MLOps Specialization (DeepLearning.AI — Coursera)",
             ],
             projetos_portfolio=[
-                "Modelo servido via FastAPI + Docker em AWS (ECS/Lambda), com endpoint público.",
+                "Pipeline serverless em AWS (Lambda + S3 + SQS) processando documentos, com endpoint.",
             ],
         ),
         LacunaPriorizada(
-            titulo="CNH categoria B",
-            descricao="Requisito administrativo da vaga não informado no currículo.",
+            titulo="Docker",
+            descricao="O CV não evidencia containerização (Docker), pedida para empacotar "
+                      "e implantar as soluções.",
             prioridade="MÉDIA",
-            recomendacao="Se possuir CNH categoria B, incluir na seção de dados pessoais/"
-                         "informações adicionais do CV para não ser cortado por filtro administrativo.",
+            recomendacao="Containerizar um projeto existente (Dockerfile + imagem publicada) e "
+                         "adicionar 'Docker' às skills com evidência real.",
+            cursos_certificacoes=[
+                "Docker for the Absolute Beginner (KodeKloud / Udemy)",
+            ],
+            projetos_portfolio=[
+                "Serviço de inferência empacotado em Docker, com imagem no Docker Hub/GHCR.",
+            ],
         ),
     ]
     requisitos = [
@@ -406,26 +413,26 @@ def _analise_exemplo() -> AnaliseCV:
     atendidos = sum(1 for m in must_haves if m.atende)
     total = len(must_haves)
     return AnaliseCV(
-        score=68,
-        score_ats=61,
-        score_aprofundado=68,
+        score=54,
+        score_ats=44,
+        score_aprofundado=54,
         resumo=(
-            f"Match geral 68/100 (ATS 61/100). O perfil de Cientista de Dados cobre a "
-            f"base de IA/ML, Python e formação superior ({atendidos}/{total} requisitos), "
-            "mas não evidencia IA Generativa/LLM nem o domínio de sistemas embarcados — "
-            "as principais lacunas para esta vaga."
+            f"Match geral 54/100 (ATS 44/100). O perfil de Cientista de Dados cobre a "
+            f"base de Python, ML e dados ({atendidos}/{total} requisitos), mas não evidencia "
+            "agentes autônomos/LLMs, RAG/bancos vetoriais nem Docker — as principais "
+            "lacunas para esta vaga de engenharia de IA sênior."
         ),
         highlight_aprofundado=(
-            "Score 68 reflete boa base em Ciência de Dados (Python, ML, estatística), "
-            "penalizada pela ausência de IA Generativa/LLM e do domínio de sistemas embarcados."
+            "Score 54 reflete boa base em Ciência de Dados (Python, ML, SQL), penalizada "
+            "pela ausência de agentes autônomos, LLMs em produção e RAG/bancos vetoriais."
         ),
         highlight_ats=(
-            "Score ATS 61: termos como 'IA Generativa', 'LLM' e 'sistemas embarcados' "
+            "Score ATS 44: termos como 'agentes autônomos', 'LLM', 'RAG' e 'Docker' "
             "não aparecem literalmente no CV, reduzindo o match exato."
         ),
         highlight_must_have=(
-            f"{atendidos} de {total} requisitos cobertos (55.6%); os ausentes "
-            "(LLM, sistemas embarcados, cloud deploy, CNH) são endereçáveis."
+            f"{atendidos} de {total} requisitos cobertos (44.4%); os ausentes "
+            "(agentes/LLMs, RAG, AWS, Docker) são endereçáveis."
         ),
         must_haves=must_haves,
         gaps=gaps,
@@ -990,11 +997,11 @@ def enriquecer_vaga(
 ) -> VagaEnriquecida:
     """Mock determinístico: infere o enriquecimento a partir dos textos.
 
-    Para a vaga de exemplo (FIESC/SENAI) devolve um enriquecimento curado,
-    coerente com as imagens de referência. Para as demais, aplica heurísticas
-    sobre a descrição (stack/jornada/senioridade/localização) e valores
-    plausíveis e estáveis para os campos da empresa (segmento/porte/Glassdoor),
-    que a IA real (Parte 2) obteria por pesquisa.
+    Para a vaga de exemplo (SENAI-SC — IA/Geointeligência/New Space) devolve um
+    enriquecimento curado, coerente com as imagens de referência. Para as demais,
+    aplica heurísticas sobre a descrição (stack/jornada/senioridade/localização) e
+    valores plausíveis e estáveis para os campos da empresa (segmento/porte/
+    Glassdoor), que a IA real (Parte 2) obteria por pesquisa.
     """
     if _ASSINATURA_VAGA_EXEMPLO in (vaga_texto or ""):
         return VagaEnriquecida(
@@ -1002,8 +1009,8 @@ def enriquecer_vaga(
             porte="Grande",
             glassdoor_score=4.1,
             jornada="Presencial",
-            senioridade="Pleno",
-            stack=["Python", "Machine Learning", "IA Generativa", "LLM", "Cloud", "Sistemas Embarcados"],
+            senioridade="Sênior",
+            stack=["Python", "LLMs", "RAG", "Bancos vetoriais", "AWS", "Docker", "Agentes autônomos"],
             localizacao="Florianópolis/SC",
         )
 

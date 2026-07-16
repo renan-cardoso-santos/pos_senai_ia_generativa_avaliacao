@@ -308,8 +308,13 @@ class AnthropicIAService(IAService):
     def _gerar(self, output_model: type[BaseModel], prompt: str, modelo: str,
                *, max_tokens: int = 4096, effort: str | None = None,
                thinking: dict[str, Any] | None = None) -> Any:
-        """Uma chamada estruturada. `effort`/`thinking` aplicam-se só aos modelos
-        que os suportam — no Haiku 4.5 (pré-4.6) são descartados para evitar 400.
+        """Uma chamada estruturada (via streaming). `effort`/`thinking` aplicam-se
+        só aos modelos que os suportam — no Haiku 4.5 (pré-4.6) são descartados
+        para evitar 400.
+
+        Usamos `messages.stream()` (não `.create()`) porque o thinking adaptativo
+        do Sonnet 5 consome o orçamento de `max_tokens`; o streaming evita o
+        timeout HTTP do SDK e permite orçamentos maiores sem truncar o JSON.
         """
         if modelo.startswith("claude-haiku"):
             if effort or thinking:
@@ -323,14 +328,15 @@ class AnthropicIAService(IAService):
             output_config["effort"] = effort
         extra: dict[str, Any] = {"thinking": thinking} if thinking else {}
         try:
-            resposta = self._client.messages.create(
+            with self._client.messages.stream(
                 model=modelo,
                 max_tokens=max_tokens,
                 system=self._system,
                 messages=[{"role": "user", "content": prompt}],
                 output_config=output_config,
                 **extra,
-            )
+            ) as stream:
+                resposta = stream.get_final_message()
         except Exception as exc:  # erros do SDK → mensagem amigável
             logger.warning("Falha na chamada de IA (%s): %s", type(exc).__name__, exc)
             raise _traduzir_erro(exc) from exc
@@ -370,9 +376,11 @@ class AnthropicIAService(IAService):
             f"<curriculo>\n{cv_texto}\n</curriculo>\n\n<vaga>\n{vaga_texto}\n</vaga>"
         )
         # Núcleo do produto: exige julgar fit → effort alto + raciocínio adaptativo.
+        # Budget alto: o thinking adaptativo + o JSON grande de AnaliseCV (many
+        # must_haves/gaps em vagas ricas) precisam caber juntos sem truncar.
         return self._gerar(
             AnaliseCV, prompt, MODELO_SONNET,
-            max_tokens=8192, effort="high", thinking=_THINKING_ADAPTIVO,
+            max_tokens=16000, effort="high", thinking=_THINKING_ADAPTIVO,
         )
 
     def _buscar_empresa(self, empresa: str, cargo: str, vaga_texto: str, link: str) -> str:
@@ -459,7 +467,7 @@ class AnthropicIAService(IAService):
         )
         # Reescrita de qualidade (keywords ATS, tom) → effort alto. Budget folgado:
         # o adaptive thinking do Sonnet 5 (ligado por padrão) consome max_tokens.
-        return self._gerar(_ListaSugestoes, prompt, MODELO_SONNET, max_tokens=8192, effort="high").itens
+        return self._gerar(_ListaSugestoes, prompt, MODELO_SONNET, max_tokens=16000, effort="high").itens
 
     def recomendar_projetos_star(
         self, vaga_texto: str, portfolio: list[dict[str, Any]]

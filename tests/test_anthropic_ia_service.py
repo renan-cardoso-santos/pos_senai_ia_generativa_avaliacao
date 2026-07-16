@@ -35,32 +35,60 @@ _JSON_POR_MODELO = {
 }
 
 
+class _FakeStream:
+    """Context manager que imita `client.messages.stream(...)` do SDK."""
+
+    def __init__(self, message) -> None:
+        self._message = message
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc) -> bool:
+        return False
+
+    def get_final_message(self):
+        return self._message
+
+
 class _FakeMessages:
-    """Dublê de `client.messages.create`: structured output e loop web_search."""
+    """Dublê de `client.messages`: `stream` (estruturado, via `_gerar`) e `create`
+    (loop agêntico web_search). `_gerar` usa streaming; a busca de empresa usa create.
+    """
 
     def __init__(self, stop_reasons=None) -> None:
         self.ultima_chamada: dict = {}
         self.create_calls: list[dict] = []
         self._stop_reasons = list(stop_reasons or ["end_turn"])
 
+    def _estruturada(self, kwargs):
+        """Monta a resposta estruturada e registra a chamada (compartilhado)."""
+        oc = kwargs.get("output_config") or {}
+        titulo = oc["format"]["schema"].get("title", "")
+        self.ultima_chamada = {
+            "model": kwargs["model"],
+            "system": kwargs["system"],
+            "prompt": kwargs["messages"][0]["content"],
+            "max_tokens": kwargs["max_tokens"],
+            "effort": oc.get("effort"),
+            "thinking": kwargs.get("thinking"),
+            "schema_title": titulo,
+        }
+        texto = _JSON_POR_MODELO.get(titulo, "{}")
+        return SimpleNamespace(
+            stop_reason="end_turn", content=[SimpleNamespace(type="text", text=texto)]
+        )
+
+    def stream(self, **kwargs):
+        # `_gerar` sempre passa output_config → chamada estruturada.
+        self.create_calls.append(kwargs)
+        return _FakeStream(self._estruturada(kwargs))
+
     def create(self, **kwargs):
         self.create_calls.append(kwargs)
         oc = kwargs.get("output_config")
-        if oc and "format" in oc:  # chamada estruturada (_gerar)
-            titulo = oc["format"]["schema"].get("title", "")
-            self.ultima_chamada = {
-                "model": kwargs["model"],
-                "system": kwargs["system"],
-                "prompt": kwargs["messages"][0]["content"],
-                "max_tokens": kwargs["max_tokens"],
-                "effort": oc.get("effort"),
-                "thinking": kwargs.get("thinking"),
-                "schema_title": titulo,
-            }
-            texto = _JSON_POR_MODELO.get(titulo, "{}")
-            return SimpleNamespace(
-                stop_reason="end_turn", content=[SimpleNamespace(type="text", text=texto)]
-            )
+        if oc and "format" in oc:  # compat: estruturado via create (não usado por _gerar)
+            return self._estruturada(kwargs)
         # chamada agêntica (web_search) — stop_reason roteirizado
         sr = self._stop_reasons.pop(0) if self._stop_reasons else "end_turn"
         return SimpleNamespace(
@@ -148,12 +176,12 @@ def test_gerar_erro_claro_quando_resposta_trunca():
 
     servico, _ = _servico_fake()
 
-    def _create(**_):  # simula resposta cortada por tamanho (JSON incompleto)
-        return SimpleNamespace(
-            stop_reason="max_tokens", content=[SimpleNamespace(type="text", text="{")]
+    def _stream(**_):  # simula resposta cortada por tamanho (JSON incompleto)
+        return _FakeStream(
+            SimpleNamespace(stop_reason="max_tokens", content=[SimpleNamespace(type="text", text="{")])
         )
 
-    servico._client = SimpleNamespace(messages=SimpleNamespace(create=_create))
+    servico._client = SimpleNamespace(messages=SimpleNamespace(stream=_stream))
     with pytest.raises(IAServiceError, match="cortada por tamanho"):
         servico.sugerir_melhorias("CV", [])
 
@@ -250,7 +278,7 @@ def test_erro_do_sdk_vira_mensagem_amigavel():
         pass
 
     class _ClienteQuebrado:
-        def create(self, **_):
+        def stream(self, **_):  # estruturado agora vai por stream() (via _gerar)
             raise RateLimitError("429")
 
     servico, _ = _servico_fake()

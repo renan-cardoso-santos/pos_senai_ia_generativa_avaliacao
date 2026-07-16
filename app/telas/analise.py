@@ -55,6 +55,7 @@ def render() -> None:
             exemplo = exemplos.vaga_exemplo()
             st.session_state.v_empresa = exemplo["empresa"]
             st.session_state.v_cargo = exemplo["cargo"]
+            st.session_state.v_link = exemplo.get("link", "")
             st.session_state.v_vaga = exemplo["descricao"]
             st.rerun()
 
