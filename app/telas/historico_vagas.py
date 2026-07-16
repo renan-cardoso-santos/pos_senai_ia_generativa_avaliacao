@@ -58,8 +58,8 @@ def _insights(vagas: list) -> None:
     with c_btn:
         if st.button("✨ Gerar insights do histórico", use_container_width=True):
             with st.spinner("Lendo seu funil de candidaturas…"):
-                resultado = get_ia_service().gerar_insights_historico(
-                    _resumo_para_insights(vagas)
+                resultado = ui.chamar_ia(
+                    get_ia_service().gerar_insights_historico, _resumo_para_insights(vagas)
                 )
             st.session_state.insights_historico = resultado.paragrafo
     if texto := st.session_state.get("insights_historico"):

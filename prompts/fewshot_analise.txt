@@ -1,0 +1,10 @@
+Exemplo de uma boa análise (calibra a lógica de scoring — NÃO copie o conteúdo, só o padrão):
+- Vaga (trecho): "Obrigatório: Python e SQL. Desejável: experiência com Apache Airflow."
+- score: 72
+- score_ats: 80  (o CV cita "Python" e "SQL" literalmente; não cita "Apache Airflow")
+- score_aprofundado: 68  (must-haves cobertos, mas Airflow — diferencial forte na vaga — está ausente)
+- resumo: "Bom match nos obrigatórios (Python, SQL). score_aprofundado menor que o ATS porque falta Airflow, citado como diferencial relevante."
+- highlight_ats: "2 de 2 keywords obrigatórias presentes de forma literal; falta a keyword 'Apache Airflow'."
+- highlight_must_have: "2/2 must-haves atendidos; o gap é de nice-to-have endereçável."
+- must_haves: [ {requisito: "Python", atende: true, evidencia: "Python (5 anos) em pipelines de ETL"}, {requisito: "SQL", atende: true, evidencia: "SQL para modelagem analítica"} ]
+- gaps: [ {titulo: "Apache Airflow", descricao: "Diferencial da vaga não evidenciado no CV.", prioridade: "MÉDIA", recomendacao: "Publicar um DAG simples de exemplo.", cursos_certificacoes: ["Astronomer Airflow Fundamentals"], projetos_portfolio: ["PoC no GitHub: pipeline ETL orquestrado com Airflow"]} ]

@@ -1,0 +1,27 @@
+Critérios de pontuação (simule a triagem de ATSs modernos: LinkedIn Recruiter, Gupy, Eightfold).
+
+## Como calcular cada score (0–100)
+- score: aderência geral CV × vaga, combinando cobertura literal e fit técnico.
+- score_ats: matching LITERAL de palavras-chave. Conte quantas keywords da vaga aparecem no CV com o mesmo termo (ex.: a vaga pede "Apache Airflow" → o CV precisa dizer "Apache Airflow", não "orquestrador de pipelines"). NÃO conte sinônimos. É uma medida de cobertura de keywords.
+- score_aprofundado: fit técnico PONDERADO. Must-haves pesam mais que nice-to-haves; anos de experiência e profundidade contam. Pode DIVERGIR de score/score_ats — quando divergir, explique o motivo em `resumo` e em `highlight_aprofundado` (ex.: "score_ats alto por keywords, mas aprofundado menor por faltar 1 must-have central").
+
+## Classificação de requisitos (must-have vs nice-to-have)
+- Must-have: frases como "obrigatório", "é necessário", "deve ter", "requisitos mínimos", "required", "essencial".
+- Nice-to-have: "desejável", "diferencial", "será um plus", "preferencial", "nice-to-have".
+- Se a linguagem for ambígua, classifique de forma CONSERVADORA como must-have (ATSs eliminam por ausência de must-have).
+- Popule `must_haves[]`: para cada obrigatório, `atende` (o CV evidencia?) e `evidencia` (trecho LITERAL do CV que comprova; vazio se não atende).
+- `highlight_must_have`: quantos must-haves atendidos vs. ausentes e se os faltantes são endereçáveis.
+
+## Regras de gaps
+- Gere `gaps[]` apenas para must-haves NÃO atendidos (ou experiência/formação que afete a triagem, ex.: tempo curto numa skill central). NÃO gere gap para nice-to-have ausente.
+- Cada gap: `titulo` curto, `descricao` (1–2 frases), `prioridade` (ALTA/MÉDIA/BAIXA), `recomendacao` (ação objetiva), `cursos_certificacoes` (nomes oficiais, priorizar reconhecidos e gratuitos/baratos) e `projetos_portfolio` (PoC publicável no GitHub/LinkedIn em 1 linha que feche o gap).
+
+## Boas práticas ATS que guiam o score
+1. Keyword literal: valorize termos exatos da vaga presentes no CV; sinalize os ausentes.
+2. Peso must×nice: faltar 1 must-have é eliminatório (derruba score_aprofundado); faltar nice-to-have reduz pouco.
+3. Alinhamento de título: se o título da vaga diverge do cargo atual do CV, mencione no `resumo`.
+4. Quantificação: bullets com métrica ("reduzi 30%", "processei 1M registros") sobem o fit; sinalize bullets sem métrica.
+5. Action verbs: CVs com verbos fortes ("desenvolvi", "implementei", "otimizei") indicam maturidade.
+6. Anti-stuffing: NÃO recompense keyword sem evidência real de domínio no CV — stuffing é detectado em entrevista.
+
+Baseie-se APENAS no conteúdo fornecido. Não invente experiências, projetos ou skills. Seja honesto ao sinalizar gaps.

@@ -1,0 +1,10 @@
+Exemplo de uma boa recomendação de projeto (ancorada no portfólio real, STAR — NÃO copie o conteúdo, só o padrão):
+- projeto: "Detecção de defeitos em linha de produção com YOLO"
+- motivo: "A vaga pede visão computacional e deploy de modelos; este projeto cobre ambos com stack literal (PyTorch, ONNX)."
+- situacao: "Inspeção manual de peças gerava retrabalho e escapes de qualidade."
+- tarefa: "Automatizar a detecção de defeitos em tempo real na esteira."
+- acao: "Treinei um YOLO em PyTorch, exportei para ONNX e servi via FastAPI/Docker."
+- resultado: "Reduzi escapes em 40% e o tempo de inspeção por peça em 60%."
+- skills_tags: "Computer Vision, YOLO, PyTorch, ONNX, FastAPI, Docker"
+- area: "Indústria/Manufatura"
+- link_repo: "github.com/usuario/deteccao-defeitos-yolo"

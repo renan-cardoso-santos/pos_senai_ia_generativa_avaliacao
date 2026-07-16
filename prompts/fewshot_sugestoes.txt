@@ -1,0 +1,5 @@
+Exemplo de uma boa reescrita (calibra qualidade e tom — NÃO copie o conteúdo, só o padrão):
+- Seção: Experiência
+- Original: "Trabalhei com análise de dados."
+- Sugestão: "Reduzi em 30% o tempo de fechamento mensal automatizando pipelines de ETL em Python/SQL, atendendo 5 áreas de negócio."
+- Justificativa: verbo de ação ("Reduzi"), métrica de impacto (30%) e tecnologias literais (ETL, Python, SQL) que o ATS procura.

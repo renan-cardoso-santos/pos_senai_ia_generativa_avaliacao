@@ -45,6 +45,28 @@ from agents.modelos import (
 # ---------------------------------------------------------------------------
 # Infra do registry
 # ---------------------------------------------------------------------------
+def _tornar_estrito(schema: dict[str, Any]) -> dict[str, Any]:
+    """Deixa um JSON Schema compatível com strict tool use da Messages API.
+
+    Percorre recursivamente (properties, $defs, items, anyOf) e, em cada objeto,
+    força `additionalProperties: false` e lista todas as propriedades em `required`
+    — os dois requisitos do modo estrito (`strict: true`).
+    """
+    if not isinstance(schema, dict):
+        return schema
+    if schema.get("type") == "object" and "properties" in schema:
+        schema["additionalProperties"] = False
+        schema["required"] = list(schema["properties"].keys())
+    for chave in ("properties", "$defs"):
+        for sub in schema.get(chave, {}).values():
+            _tornar_estrito(sub)
+    if isinstance(schema.get("items"), dict):
+        _tornar_estrito(schema["items"])
+    for sub in schema.get("anyOf", []):
+        _tornar_estrito(sub)
+    return schema
+
+
 @dataclass
 class Tool:
     """Metadados de uma tool: nome, descrição, entrada tipada e executor."""
@@ -55,11 +77,16 @@ class Tool:
     func: Callable[..., Any]
 
     def anthropic_schema(self) -> dict[str, Any]:
-        """Schema no formato de tool da Messages API (usado na Parte 2)."""
+        """Schema estrito no formato de tool da Messages API.
+
+        `strict: true` garante que o `input` da tool valide exatamente contra o
+        schema Pydantic (structured outputs a nível de tool).
+        """
         return {
             "name": self.nome,
             "description": self.descricao,
-            "input_schema": self.input_model.model_json_schema(),
+            "input_schema": _tornar_estrito(self.input_model.model_json_schema()),
+            "strict": True,
         }
 
 
@@ -132,20 +159,24 @@ class EntradaCVVaga(BaseModel):
 
 
 class EntradaSugestoes(BaseModel):
-    cv_texto: str
-    lacunas: list[str] = Field(default_factory=list)
+    cv_texto: str = Field(description="Texto do currículo a reescrever")
+    lacunas: list[str] = Field(
+        default_factory=list, description="Gaps (da análise CV×vaga) a priorizar na reescrita"
+    )
 
 
 class EntradaCarta(BaseModel):
-    cv_texto: str
-    vaga_texto: str
+    cv_texto: str = Field(description="Texto do currículo")
+    vaga_texto: str = Field(description="Descrição da vaga")
     tom: str = Field(default="profissional", description="formal | profissional | entusiasmado")
 
 
 class EntradaRespostas(BaseModel):
-    cv_texto: str
-    vaga_texto: str
-    perguntas: list[str] = Field(default_factory=list)
+    cv_texto: str = Field(description="Texto do currículo (âncora das respostas)")
+    vaga_texto: str = Field(description="Descrição da vaga")
+    perguntas: list[str] = Field(
+        default_factory=list, description="Perguntas do entrevistador; vazio → usar perguntas comuns"
+    )
 
 
 class EntradaRecomendarStar(BaseModel):
@@ -184,7 +215,9 @@ _ASSINATURA_VAGA_EXEMPLO = "01747/2026"
 
 @tool(
     "analisar_cv_vaga",
-    "Compara o CV com a vaga e retorna score, requisitos atendidos e lacunas.",
+    "Compara o CV com a vaga e retorna score, requisitos atendidos e lacunas."
+    " Use quando o usuário está na tela de Análise com currículo e vaga preenchidos"
+    " e quer o diagnóstico de aderência (scores ATS/aprofundado, must-haves e gaps).",
     EntradaCVVaga,
 )
 def analisar_cv_vaga(cv_texto: str, vaga_texto: str) -> AnaliseCV:
@@ -408,7 +441,9 @@ def _analise_exemplo() -> AnaliseCV:
 
 @tool(
     "sugerir_melhorias_cv",
-    "Gera reescritas do CV por seção, focadas nas lacunas, com palavras-chave ATS.",
+    "Gera reescritas do CV por seção, focadas nas lacunas, com palavras-chave ATS."
+    " Use quando o usuário está na tela de Sugestões, já rodou a análise e quer"
+    " reescritas cirúrgicas do currículo endereçando as lacunas identificadas.",
     EntradaSugestoes,
 )
 def sugerir_melhorias_cv(cv_texto: str, lacunas: list[str] | None = None) -> list[SugestaoSecao]:
@@ -444,7 +479,9 @@ def sugerir_melhorias_cv(cv_texto: str, lacunas: list[str] | None = None) -> lis
 
 @tool(
     "gerar_carta_apresentacao",
-    "Gera uma carta de apresentação a partir do CV, da vaga e do tom.",
+    "Gera uma carta de apresentação a partir do CV, da vaga e do tom."
+    " Use quando o usuário monta o pacote de Entrevista e quer uma carta pronta,"
+    " ligando os fatos do currículo às palavras-chave da vaga.",
     EntradaCarta,
 )
 def gerar_carta_apresentacao(cv_texto: str, vaga_texto: str, tom: str = "profissional") -> TextoGerado:
@@ -465,7 +502,9 @@ def gerar_carta_apresentacao(cv_texto: str, vaga_texto: str, tom: str = "profiss
 
 @tool(
     "gerar_pitch",
-    "Gera um pitch pessoal de 30–60s a partir do CV e da vaga.",
+    "Gera um pitch pessoal de 30–60s a partir do CV e da vaga."
+    " Use quando o usuário monta o pacote de Entrevista e quer uma apresentação"
+    " falada curta para abrir a conversa com o recrutador.",
     EntradaCVVaga,
 )
 def gerar_pitch(cv_texto: str, vaga_texto: str) -> TextoGerado:
@@ -480,7 +519,9 @@ def gerar_pitch(cv_texto: str, vaga_texto: str) -> TextoGerado:
 
 @tool(
     "gerar_respostas_perguntas",
-    "Gera respostas ancoradas no CV para perguntas comuns de entrevista.",
+    "Gera respostas ancoradas no CV para perguntas comuns de entrevista."
+    " Use quando o usuário monta o pacote de Entrevista e quer ensaiar respostas"
+    " (método STAR) baseadas em fatos reais do currículo.",
     EntradaRespostas,
 )
 def gerar_respostas_perguntas(
@@ -731,7 +772,9 @@ def _parse_formacao(bloco: list[str]) -> list[FormacaoItem]:
 @tool(
     "estruturar_cv",
     "Extrai do texto bruto de um CV os campos do currículo padronizado "
-    "(dados pessoais, resumo, experiências, formação, skills) para pré-preenchimento.",
+    "(dados pessoais, resumo, experiências, formação, skills) para pré-preenchimento."
+    " Use quando o usuário está na tela de Perfil e cola um CV em texto livre"
+    " para pré-popular o formulário estruturado.",
     EntradaEstruturarCV,
 )
 def estruturar_cv(cv_texto: str) -> CurriculoEstruturado:
@@ -786,7 +829,9 @@ def estruturar_cv(cv_texto: str) -> CurriculoEstruturado:
 
 @tool(
     "recomendar_projetos_star",
-    "Cruza os requisitos da vaga com o portfólio STAR e retorna os projetos mais aderentes.",
+    "Cruza os requisitos da vaga com o portfólio STAR e retorna os projetos mais aderentes."
+    " Use quando o usuário quer, na tela de Sugestões ou no pacote de Entrevista,"
+    " escolher quais projetos reais do portfólio citar para aquela vaga.",
     EntradaRecomendarStar,
 )
 def recomendar_projetos_star(
@@ -935,7 +980,9 @@ def _detectar_segmento(empresa: str, vaga_low: str) -> str:
 @tool(
     "enriquecer_vaga",
     "Enriquece a vaga com contexto da empresa (segmento, porte, nota Glassdoor) e "
-    "da vaga (jornada, senioridade, stack, localização), inferidos da descrição.",
+    "da vaga (jornada, senioridade, stack, localização), inferidos da descrição."
+    " Use quando o usuário salva/analisa uma vaga e quer contexto da empresa"
+    " (pesquisa web) para o card do Kanban e a checagem de compatibilidade.",
     EntradaEnriquecerVaga,
 )
 def enriquecer_vaga(
@@ -1012,7 +1059,9 @@ def _mais_comum(valores: list[str]) -> str:
 @tool(
     "gerar_insights_historico",
     "Resume o histórico de candidaturas em um parágrafo curto de insights "
-    "(distribuição no funil, score médio, melhor match e padrões do perfil).",
+    "(distribuição no funil, score médio, melhor match e padrões do perfil)."
+    " Use quando o usuário abre o Histórico de vagas e quer uma leitura"
+    " agregada do funil de candidaturas.",
     EntradaInsightsHistorico,
 )
 def gerar_insights_historico(vagas: list[Any] | None = None) -> InsightsHistorico:

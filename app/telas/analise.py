@@ -79,10 +79,12 @@ def render() -> None:
     if st.button("✨ Analisar CV × vaga", type="primary", disabled=not pronto):
         with st.spinner("Analisando aderência e enriquecendo a vaga…"):
             ia = get_ia_service()
-            analise: AnaliseCV = ia.analisar_cv_vaga(cv_texto, vaga_texto)
+            analise: AnaliseCV = ui.chamar_ia(ia.analisar_cv_vaga, cv_texto, vaga_texto)
             # Enriquecimento: a IA infere contexto da empresa (segmento, porte,
             # Glassdoor) e da vaga (jornada, senioridade, stack, localização).
-            enriquecimento = ia.enriquecer_vaga(empresa, cargo, vaga_texto, link_empresa.strip())
+            enriquecimento = ui.chamar_ia(
+                ia.enriquecer_vaga, empresa, cargo, vaga_texto, link_empresa.strip()
+            )
             # upsert por (usuário, empresa, cargo): reanalisar a mesma vaga
             # atualiza o card existente em vez de duplicá-lo no Kanban.
             vaga_id = db.upsert_vaga(

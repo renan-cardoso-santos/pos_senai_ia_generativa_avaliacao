@@ -124,7 +124,7 @@ def _secao_reescrita_cv(vaga_id: int, cv_texto: str, analise: AnaliseCV) -> list
     if st.button("✨ Gerar recomendações de reescrita do CV"):
         with st.spinner("Reescrevendo seções do CV…"):
             ia = get_ia_service()
-            st.session_state[chave] = ia.sugerir_melhorias(cv_texto, analise.lacunas)
+            st.session_state[chave] = ui.chamar_ia(ia.sugerir_melhorias, cv_texto, analise.lacunas)
 
     sugestoes = st.session_state.get(chave)
     if not sugestoes:
@@ -166,7 +166,8 @@ def _secao_projetos_star(usuario_id: int, vaga) -> list:
     st.caption("Projetos do seu portfólio mais aderentes aos requisitos da vaga.")
     with st.spinner("Cruzando requisitos da vaga com seu portfólio…"):
         ia = get_ia_service()
-        recomendados = ia.recomendar_projetos_star(
+        recomendados = ui.chamar_ia(
+            ia.recomendar_projetos_star,
             (vaga["descricao"] if vaga else "") or "", [dict(p) for p in projetos]
         )
     for r in recomendados:

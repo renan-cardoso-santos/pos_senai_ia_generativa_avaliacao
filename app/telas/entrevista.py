@@ -48,7 +48,7 @@ def render() -> None:
         with st.spinner("Montando seu pacote de entrevista…"):
             ia = get_ia_service()
             portfolio = [dict(p) for p in db.listar_portfolio(usuario_id)]
-            pacote = ia.gerar_pacote_entrevista(cv_texto, vaga_texto, portfolio, tom)
+            pacote = ui.chamar_ia(ia.gerar_pacote_entrevista, cv_texto, vaga_texto, portfolio, tom)
             db.salvar_entregavel(vaga_id, "carta", pacote.carta)
             db.salvar_entregavel(vaga_id, "pitch", pacote.pitch)
             # Guarda o JSON padronizado na sessão (saída Pydantic).

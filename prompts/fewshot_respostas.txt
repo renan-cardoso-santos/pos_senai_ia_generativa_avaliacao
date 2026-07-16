@@ -1,0 +1,3 @@
+Exemplo de uma boa resposta (ancorada no CV, método STAR resumido — NÃO copie o conteúdo, só o padrão):
+- Pergunta: "Conte sobre um desafio técnico que você resolveu."
+- Resposta: "No meu último projeto, o fechamento mensal levava 3 dias (Situação/Tarefa). Automatizei o ETL em Python/SQL (Ação), reduzindo para poucas horas e liberando a equipe para análise (Resultado)."

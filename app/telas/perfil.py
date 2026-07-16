@@ -61,7 +61,7 @@ def _editor_curriculo(usuario_id: int) -> None:
             if arquivo is not None and st.session_state.get("cv_arquivo_nome") != arquivo.name:
                 with st.spinner("Extraindo e estruturando o CV…"):
                     texto = extracao_cv.extrair_texto(arquivo)
-                    estruturado = get_ia_service().estruturar_cv(texto)
+                    estruturado = ui.chamar_ia(get_ia_service().estruturar_cv, texto)
                 st.session_state.cv_arquivo_nome = arquivo.name
                 st.session_state.cv_texto_bruto = texto
                 st.session_state.cv_estruturado = estruturado.model_dump()

@@ -20,6 +20,7 @@ if _RAIZ not in sys.path:
 
 import streamlit as st  # noqa: E402
 
+from agents import ia_service  # noqa: E402
 from app import db, tema  # noqa: E402
 from app.telas import (  # noqa: E402
     analise,
@@ -80,7 +81,11 @@ def main() -> None:
         st.markdown("### 🎯 RecrutaMe")
     with col_usuario:
         nome = st.session_state.usuario.get("nome") or st.session_state.usuario["email"]
-        st.caption(f"Olá, {nome} · IA: **modo simulado (mock)** — Parte 1")
+        _rotulo_ia = (
+            "**IA real (Claude)**" if ia_service.modo_ia_ativo() == "anthropic"
+            else "**modo simulado (mock)**"
+        )
+        st.caption(f"Olá, {nome} · IA: {_rotulo_ia}")
     with col_sair:
         if st.button("Sair", use_container_width=True):
             st.session_state.usuario = None

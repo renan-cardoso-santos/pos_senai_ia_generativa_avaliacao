@@ -18,6 +18,23 @@ def navegar(tela: str) -> None:
     st.rerun()
 
 
+def chamar_ia(fn, *args, **kwargs):
+    """Executa uma chamada ao serviço de IA com tratamento de erro amigável.
+
+    Uso: `resultado = ui.chamar_ia(ia.analisar_cv_vaga, cv, vaga)`. Em sucesso,
+    devolve o resultado normalmente; em `IAServiceError` (limite/rede/chave/schema),
+    exibe a mensagem PT-BR e interrompe o render (`st.stop`) sem stack trace. No
+    modo mock nunca dispara (o mock não levanta esse erro).
+    """
+    from agents.ia_service import IAServiceError
+
+    try:
+        return fn(*args, **kwargs)
+    except IAServiceError as exc:
+        st.error(f"⚠️ {exc}")
+        st.stop()
+
+
 def cabecalho(titulo: str, subtitulo: str = "") -> None:
     """Cabeçalho consistente: título + linha de contexto."""
     st.header(titulo)
